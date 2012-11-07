@@ -81,7 +81,7 @@ module Pwrake
         if a[0] == '--version'
           a[3] = lambda { |value|
             puts "rake, version #{RAKEVERSION}"
-            puts "pwrake, version #{Pwrake::PWRAKEVERSION}"
+            puts "pwrake, version #{Pwrake::VERSION}"
             exit
           }
         end
