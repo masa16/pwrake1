@@ -8,9 +8,9 @@ Gem::Specification.new do |gem|
   gem.version       = Pwrake::VERSION
   gem.authors       = ["Masahiro TANAKA"]
   gem.email         = ["masa16.tanaka@gmail.com"]
-  gem.description   = %q{TODO: Write a gem description}
-  gem.summary       = %q{TODO: Write a gem summary}
-  gem.homepage      = ""
+  gem.description   = %q{Parallel workflow extension for Rake}
+  gem.summary       = %q{Adding Parallel and Distributed feature to Rake}
+  gem.homepage      = "http://masa16.github.com/pwrake"
 
   gem.files         = `git ls-files`.split($/)
   gem.executables   = gem.files.grep(%r{^bin/}).map{ |f| File.basename(f) }
