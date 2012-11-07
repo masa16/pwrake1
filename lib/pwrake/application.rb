@@ -1,7 +1,7 @@
 module Rake
   class << self
     def application
-      @application ||= Pwrake::Application.new
+      @application ||= Pwrake.application
     end
   end
 end
@@ -10,27 +10,30 @@ end
 module Pwrake
 
   class << self
-    # Current Rake Application
     def application
-      Rake.application
+      @application ||= Application.new
     end
   end
 
-  # The TaskManager module is a mixin for managing tasks.
   class Application < ::Rake::Application
-    include Pwrake::Log
+
+    def task_queue
+      @master.task_queue
+    end
 
     # Run the Pwrake application.
     def run
       standard_exception_handling do
         init("pwrake")
-        pwrake = nil
+        @master = Master.new
+        load_rakefile
+        @master.setup
         begin
-          load_rakefile
-          pwrake = Pwrake.manager
+          @master.start
           top_level
+          @master.wait
         ensure
-          pwrake.finish if pwrake
+          @master.finish
         end
       end
     end
@@ -38,11 +41,37 @@ module Pwrake
     def invoke_task(task_string)
       name, args = parse_task_string(task_string)
       t = self[name]
-      begin
-        operator = Pwrake.manager.operator
-        operator.invoke(t,args)
-      ensure
-        operator.finish if operator
+      #task_queue.halt
+      t.search(*args)
+      #task_queue.resume
+    end
+
+    # Read and handle the command line options.
+    def handle_options
+      options.rakelib = ['rakelib']
+
+      OptionParser.new do |opts|
+        opts.banner = $PROGRAM_NAME+" [-f rakefile] {options} targets..."
+        opts.separator ""
+        opts.separator "Options are ..."
+
+        opts.on_tail("-h", "--help", "-H", "Display this help message.") do
+          puts opts
+          exit
+        end
+
+        standard_rake_options.each { |args| opts.on(*args) }
+        opts.environment('RAKEOPT')
+      end.parse!
+
+      # If class namespaces are requested, set the global options
+      # according to the values in the options structure.
+      if options.classic_namespace
+        $show_tasks = options.show_tasks
+        $show_prereqs = options.show_prereqs
+        $trace = options.trace
+        $dryrun = options.dryrun
+        $silent = options.silent
       end
     end
 
@@ -59,34 +88,105 @@ module Pwrake
       end
       opts.concat(
       [
-       ['--hostfile', '--nodefile FILE',
-        "[Pwrake] Read remote host names from FILE",
-         lambda { |value|
-           options.hostfile = value
-         }
+       ['-F', '--hostfile FILE',
+        "[Pw] Read hostnames from FILE",
+        lambda { |value|
+          options.hostfile = value
+        }
        ],
-       ['-L', '--logfile FILE', "[Pwrake] Write log to FILE",
-         lambda { |value|
-           options.logfile = value
-         }
+       ['-j', '--num_threads [N]',
+        "[Pw] Number of threads in single node",
+        lambda { |value|
+          if value
+            value = value.to_i
+            if value > 0
+              options.num_threads = value
+            else
+              options.num_threads = x = processor_count + value
+              raise "negative/zero number of threads (#{x})" if x <= 0
+            end
+          else
+            options.num_threads = processor_count
+          end
+          puts "num_threads=#{options.num_threads}"
+        }
        ],
-       ['--gfarm', "[Pwrake] Use Gfarm filesystem (FILESYSTEM=gfarm)",
-         lambda { |value|
-           options.filesystem = "gfarm"
-         }
+       ['-L', '--logfile [FILE]', "[Pw] Write log to FILE",
+        lambda { |value|
+          puts "value=#{value.inspect}"
+          if value.kind_of? String
+            options.logfile = value
+          else
+            options.logfile = ""
+          end
+        }
        ],
-       ['-A', '--disable-affinity', "[Pwrake] Turn OFF affinity (AFFINITY=off)",
-         lambda { |value|
-           options.disable_affinity = true
-         }
+       ['--filesystem FILESYSTEM', "[Pw] Specify FILESYSTEM (nfs|gfarm)",
+        lambda { |value|
+          options.filesystem = value
+        }
        ],
-       ['-S', '--disable-steal', "[Pwrake] Turn OFF task steal",
-         lambda { |value|
-           options.disable_steal = true
-         }
-       ]
+       ['--gfarm', "[Pw] FILESYSTEM=gfarm",
+        lambda { |value|
+          options.filesystem = "gfarm"
+        }
+       ],
+       ['-A', '--disable-affinity', "[Pw] Turn OFF affinity (AFFINITY=off)",
+        lambda { |value|
+          options.disable_affinity = true
+        }
+       ],
+       ['-S', '--disable-steal', "[Pw] Turn OFF task steal",
+        lambda { |value|
+          options.disable_steal = true
+        }
+       ],
+       ['-d', '--debug',
+        "[Pw] Output Debug messages",
+        lambda { |value|
+          options.debug = true
+        }
+       ],
+       ['--pwrake-conf [FILE]',
+        "Pwrake configuation file in YAML:\n" +
+        Master::DEFAULT_OPTIONS.map{|k,v| "\t\t#{k}: #{v}"}.join("\n"),
+        lambda {|value| options.pwrake_conf = value}]
       ])
       opts
+    end
+
+
+    def count(host_list, host)
+      @master.counter.count( host_list, host )
+    end
+
+    # from Michael Grosser's parallel
+    # https://github.com/grosser/parallel
+    def processor_count
+      host_os = RbConfig::CONFIG['host_os']
+      case host_os
+      when /linux|cygwin/
+        ncpu = 0
+        open("/proc/cpuinfo").each do |l|
+          ncpu += 1 if /^processor\s+: \d+/=~l
+        end
+        ncpu
+      when /darwin9/
+        `hwprefs cpu_count`.to_i
+      when /darwin/
+        (hwprefs_available? ? `hwprefs thread_count` : `sysctl -n hw.ncpu`).to_i
+      when /(open|free)bsd/
+        `sysctl -n hw.ncpu`.to_i
+      when /mswin|mingw/
+        require 'win32ole'
+        wmi = WIN32OLE.connect("winmgmts://")
+        cpu = wmi.ExecQuery("select NumberOfLogicalProcessors from Win32_Processor")
+        cpu.to_enum.first.NumberOfLogicalProcessors
+      when /solaris2/
+        `psrinfo -p`.to_i # physical cpus
+      else
+        raise "Unknown architecture: #{host_os}"
+      end
     end
 
   end

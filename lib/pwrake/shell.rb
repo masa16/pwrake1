@@ -4,7 +4,7 @@ module Pwrake
 
   class Shell
     CHARS='0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!"#=~{*}?_-^@[],./'
-    TLEN=64
+    TLEN=32
 
     OPEN_LIST={}
 
@@ -12,34 +12,62 @@ module Pwrake
       @@nice=nice
     end
 
-    @@nice = "nice"
-    @@shell = "sh"
-
-    def initialize(*arg)
-      @host = 'localhost'
-      @lock = Mutex.new
-      @terminator = ""
-      TLEN.times{ @terminator << CHARS[rand(CHARS.length)] }
-      open(system_cmd(*arg))
+    def self.reset_id
+      @@current_id = 0
     end
 
-    def system_cmd
-      [@@nice,@@shell].join(' ')
+    @@nice = "nice"
+    @@shell = "sh"
+    @@current_id = 0
+
+    def initialize(host,opt={})
+      @host = host || 'localhost'
+      @lock = Mutex.new
+      @@current_id += 1
+      @id = @@current_id
+      @option = opt
+      @cwd = @option[:dir] || Dir.pwd
+      @pass_env = @option[:pass_env]
+      @terminator = ""
+      TLEN.times{ @terminator << CHARS[rand(CHARS.length)] }
+    end
+
+    attr_reader :id
+
+    def system_cmd(*arg)
+      if ['localhost','localhost.localdomain','127.0.0.1'].include? @host
+        [@@nice,@@shell].join(' ')
+      else
+        "ssh -x -T -q #{@host} #{@@nice} #{@@shell}"
+      end
+    end
+
+    def start
+      open(system_cmd)
+      cd_cwd
     end
 
     def open(cmd,path=nil)
       if path.nil?
         path = ENV['PATH']
       end
-      @lock.synchronize do
-        @io = IO.popen( cmd, "r+" )
-        @io.puts("export PATH='#{path}'")
-        _get
-        OPEN_LIST[__id__] = self
+      @io = IO.popen( cmd, "r+" )
+      OPEN_LIST[__id__] = self
+      system "export PATH='#{path}'"
+      if @pass_env
+        @pass_env.each do |k,v|
+          system "export #{k}='#{v}'"
+        end
       end
+      #@io.puts("export PATH='#{path}'")
+      #_get
     end
 
     attr_reader :host, :status
+
+    def finish
+      close
+    end
 
     def close
       @lock.synchronize do
@@ -52,9 +80,7 @@ module Pwrake
     end
 
     def backquote(*command)
-      if command.kind_of? Array
-        command = command.join(' ')
-      end
+      command = command.join(' ')
       @lock.synchronize do
         @io.puts(command)
         _get_output
@@ -62,29 +88,40 @@ module Pwrake
     end
 
     def system(*command)
-      if command.kind_of? Array
-        command = command.join(' ')
-      end
+      command = command.join(' ')
+      Log.debug "--- command=#{command.inspect}"
       @lock.synchronize do
         @io.puts(command)
         _get
       end
+      #Log.debug "--- command=#{command.inspect} status=#{@status}"
       @status==0
     end
 
+=begin
     def cd(dir)
       system("cd #{dir}")
     end
+=end
 
     def cd_cwd
-      system("cd #{Dir.pwd}")
+      system("cd #{@cwd}")
     end
 
-    def self.connect_list( hosts )
-      hosts.map do |h|
-        self.new
+    def log_execute(task)
+      prereq_name = task.prerequisites[0]
+      if task.kind_of? Rake::FileTask and prereq_name
+        scheduled = task.location
+        Pwrake.application.count( scheduled, @host )
+        if scheduled and scheduled.include? @host
+          compare = "=="
+        else
+          compare = "!="
+        end
+        Log.info "-- access to #{prereq_name}: file_host=#{scheduled.inspect} #{compare} exec_host=#{@host}"
       end
     end
+
 
     END {
       OPEN_LIST.map do |k,v|

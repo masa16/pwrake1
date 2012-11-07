@@ -20,7 +20,8 @@ module Pwrake
 
       task = Rake.application[name]
 
-      if task.kind_of?(Rake::FileTask)
+      #if task.kind_of?(Rake::FileTask)
+      if task.kind_of?(Rake::Task)
         push_filenode( name )
         if !task.actions.empty? and !traced_cond
           push_tasknode( name )
@@ -101,4 +102,12 @@ module Pwrake
       end
     end
   end
+end
+
+task "graphviz", :file do |t,a|
+  file = a[:file] || 'pwrake.dot'
+  g = Pwrake::Graphviz.new
+  g.trace
+  g.write(file)
+  $stderr.puts "Wrote task graph to `#{file}'"
 end

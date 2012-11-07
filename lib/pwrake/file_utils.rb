@@ -1,13 +1,4 @@
-require "pwrake/log"
-
-module Kernel
-  alias backquote :'`'
-  module_function :backquote
-end
-
-
 module FileUtils
-  include Pwrake::Log
 
   alias sh_orig :sh
 
@@ -16,7 +7,6 @@ module FileUtils
     unless block_given?
       show_command = cmd.join(" ")
       show_command = show_command[0,42] + "..."
-      # TODO code application logic heref show_command.length > 45
       block = lambda { |ok, status|
         ok or fail "Command failed with status (#{status.exitstatus}): [#{show_command}]"
       }
@@ -28,7 +18,7 @@ module FileUtils
     end
     options[:noop]    ||= RakeFileUtils.nowrite_flag
     rake_check_options options, :noop, :verbose
-    pwrake_output_message cmd.join(" ") if options[:verbose]
+    Pwrake::Log.output_message cmd.join(" ") if options[:verbose]
     unless options[:noop]
       res,status = pwrake_system(*cmd)
       block.call(res, status)
@@ -37,9 +27,9 @@ module FileUtils
 
   def pwrake_system(*cmd)
     cmd_log = cmd.join(" ").inspect
-    tm = Pwrake.timer("sh",cmd_log)
+    tm = Pwrake::Timer.new("sh",cmd_log)
 
-    conn = Thread.current[:connection]
+    conn = Pwrake.current_shell
     if conn.kind_of?(Pwrake::Shell)
       res    = conn.system(*cmd)
       status = Rake::PseudoStatus.new(conn.status)
@@ -55,29 +45,17 @@ module FileUtils
   private :pwrake_system
 
 
-  def pwrake_output_message(message)
-    Pwrake::LOCK.synchronize do
-      $stderr.puts(message)
-    end
-  end
-  private :pwrake_output_message
-
-end
-
-
-module PwrakeFileUtils
-  module_function
-
-  def `(cmd) #`
+  # Pwrake version of backquote command
+  def pwrake_backquote(cmd)
     cmd_log = cmd.inspect
-    tm = Pwrake.timer("bq",cmd_log)
+    tm = Pwrake::Timer.new("bq",cmd_log)
 
-    conn = Thread.current[:connection]
+    conn = Pwrake.current_shell
     if conn.kind_of?(Pwrake::Shell)
       res    = conn.backquote(*cmd)
       status = conn.status
     else
-      res    = Kernel.backquote(cmd)
+      res    = `#{cmd}`
       if !res && status.nil?
         status = 1
       else
@@ -88,6 +66,5 @@ module PwrakeFileUtils
     tm.finish("status=%s cmd=%s"%[status,cmd_log])
     res
   end
-end
 
-include PwrakeFileUtils
+end # module FileUtils
