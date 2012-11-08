@@ -35,7 +35,7 @@ module Pwrake
     end
 
     def subdir
-      @@fs_subdir
+      @@fs_subdir.to_s
     end
 
     def pwd
@@ -138,6 +138,8 @@ module Pwrake
       @single_mp = @option[:single_mp]
       @basedir   = @option[:basedir]
       @prefix    = @option[:prefix] || @@prefix
+      @subdir    = @option[:subdir]
+      @work_dir  = @option[:work_dir]
 
       @core_id = @@core_id[host] || 0
       @@core_id[host] = @core_id + 1
@@ -155,11 +157,15 @@ module Pwrake
       system "cd"
       if not system "test -d #{@remote_mountpoint}"
         system "mkdir -p #{@remote_mountpoint}"
-        system "gfarm2fs #{@remote_mountpoint}"
+        if ["/","",nil].include?(@subdir)
+          system "gfarm2fs #{@remote_mountpoint}"
+        else
+          system "gfarm2fs -o modules=subdir,subdir=#{@subdir} #{@remote_mountpoint}"
+        end
       end
       path = ENV['PATH'].gsub( /#{GfarmPath.mountpoint}/, @remote_mountpoint )
       system "export PATH=#{path}"
-      cd_cwd
+      cd_work_dir
     end
 
     def close
@@ -172,8 +178,8 @@ module Pwrake
       self
     end
 
-    def cd_cwd
-      # modify local cwd -> remote cwd
+    def cd_work_dir
+      # modify local work_dir -> remote work_dir
       dir = Pathname.new(@remote_mountpoint) + GfarmPath.pwd
       system "cd #{dir}"
     end

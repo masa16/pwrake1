@@ -72,6 +72,10 @@ module Pwrake
       add(DEBUG, msg)
     end
 
+    def warn(msg)
+      add(WARN, msg)
+    end
+
     def fmt_time(t)
       t.strftime("%Y-%m-%dT%H:%M:%S.%%06d") % t.usec
     end
@@ -111,6 +115,10 @@ module Pwrake
 
     def debug(s)
       LOGGER.debug(s)
+    end
+
+    def warn(s)
+      LOGGER.warn(s)
     end
 
     def level

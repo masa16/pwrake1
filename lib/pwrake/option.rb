@@ -13,6 +13,7 @@ module Pwrake
       'FILESYSTEM' => nil,
       'LOGFILE' => "Pwrake%Y%m%d-%H%M%S_%$.log",
       'TRACE' => false,
+      'WORK_DIR' => '$HOME/%CWD_RELATIVE_TO_HOME',
       'MAIN_HOSTNAME' => `hostname -f`.chomp,
       'GFARM_BASEDIR' => '/tmp',
       'GFARM_PREFIX'  => "pwrake_#{ENV['USER']}",
@@ -109,6 +110,24 @@ module Pwrake
       #@opt['RAKEFILE'] =
       #@opt['LIBDIR'] =
       @opt['RAKELIBDIR'] = Rake.application.options.rakelib.join(':')
+
+      @opt['WORK_DIR'].sub!('%CWD_RELATIVE_TO_HOME',cwd_relative_to_home)
+    end
+
+    def cwd_relative_to_home
+      Pathname.pwd.relative_path_from(Pathname.new(ENV['HOME'])).to_s
+    end
+
+    def cwd_relative_if_under_home
+      home = Pathname.new(ENV['HOME']).realpath
+      path = pwd = Pathname.pwd.realpath
+      while path != home
+        if path.root?
+          return pwd.to_s
+        end
+        path = path.parent
+      end
+      return pwd.relative_path_from(home).to_s
     end
 
     def init_pass_env
@@ -183,7 +202,11 @@ module Pwrake
             l = $1 if /^([^#]*)#/ =~ l
             host, ncore, group = l.split
             if host
-              host = Socket.gethostbyname(host)[0]
+              begin
+                host = Socket.gethostbyname(host)[0]
+              rescue
+                Log.info "FQDN not resoved : #{host}"
+              end
               ncore = (ncore || 1).to_i
               group = (group || 0).to_i
               tmplist << ([host] * ncore.to_i)
@@ -209,6 +232,7 @@ module Pwrake
     end
 
     def set_filesystem
+
       if @filesystem.nil?
         if GfarmPath.gfarm2fs?
           @opt['FILESYSTEM'] = @filesystem = 'gfarm'
@@ -221,17 +245,19 @@ module Pwrake
         @filesystem  = 'gfarm'
         @shell_class = GfarmShell
         @shell_opt   = {
+          :work_dir  => Dir.pwd,
+          :pass_env  => @opt['PASS_ENV'],
           :disable_steal => @opt['DISABLE_STEAL'],
           :single_mp => @opt['GFARM_SINGLE_MP'],
           :basedir   => @opt['GFARM_BASEDIR'],
-          :prefix    => @opt['GFARM_PREFIX'],
-          :pass_env  => @opt['PASS_ENV']
+          :prefix    => @opt['GFARM_PREFIX']
         }
         @queue_class = GfarmQueue
       else
         @filesystem  = 'nfs'
         @shell_class = Shell
         @shell_opt   = {
+          :work_dir  => @opt['WORK_DIR'],
           :pass_env  => @opt['PASS_ENV']
         }
         @queue_class = TaskQueue

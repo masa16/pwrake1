@@ -26,7 +26,7 @@ module Pwrake
       @@current_id += 1
       @id = @@current_id
       @option = opt
-      @cwd = @option[:dir] || Dir.pwd
+      @work_dir = @option[:work_dir] || Dir.pwd
       @pass_env = @option[:pass_env]
       @terminator = ""
       TLEN.times{ @terminator << CHARS[rand(CHARS.length)] }
@@ -44,7 +44,7 @@ module Pwrake
 
     def start
       open(system_cmd)
-      cd_cwd
+      cd_work_dir
     end
 
     def open(cmd,path=nil)
@@ -59,8 +59,6 @@ module Pwrake
           system "export #{k}='#{v}'"
         end
       end
-      #@io.puts("export PATH='#{path}'")
-      #_get
     end
 
     attr_reader :host, :status
@@ -98,14 +96,10 @@ module Pwrake
       @status==0
     end
 
-=begin
-    def cd(dir)
-      system("cd #{dir}")
-    end
-=end
 
-    def cd_cwd
-      system("cd #{@cwd}")
+    def cd_work_dir
+      puts "cd #{@work_dir}"
+      system("cd #{@work_dir}")
     end
 
     def log_execute(task)
