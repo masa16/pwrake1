@@ -1,4 +1,4 @@
-GFARM_SUBDIR : /home/tanakams
+#GFARM_SUBDIR : /home/tanakams
 PASS_ENV :
  - ENV1
  - ENV2
