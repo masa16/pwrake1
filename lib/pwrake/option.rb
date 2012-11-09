@@ -115,11 +115,11 @@ module Pwrake
     end
 
     def cwd_relative_to_home
-      Pathname.pwd.relative_path_from(Pathname.new(ENV['HOME'])).to_s
+      Pathname.pwd.relative_path_from(Pathname.new(Dir.home)).to_s
     end
 
     def cwd_relative_if_under_home
-      home = Pathname.new(ENV['HOME']).realpath
+      home = Pathname.new(Dir.home).realpath
       path = pwd = Pathname.pwd.realpath
       while path != home
         if path.root?
