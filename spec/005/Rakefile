@@ -1,4 +1,4 @@
-require "../read_hosts"
+require "../helper"
 $cores = read_hosts("../hosts")
 
 $tasks = $cores.each_with_index.map do |h,i|

@@ -1,6 +1,5 @@
 $spec_dir = File.absolute_path(File.dirname(__FILE__))
 require $spec_dir+"/helper"
-require $spec_dir+"/read_hosts"
 $hosts = $spec_dir+"/hosts"
 
 RSpec.configure do |config|
