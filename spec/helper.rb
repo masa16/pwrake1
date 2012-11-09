@@ -1,10 +1,20 @@
 class Helper
 
   @@spec_dir = File.absolute_path(File.dirname(__FILE__))+"/"
-  @@pwrake = @@spec_dir+'../bin/pwrake'
+  @@pwrake = @@spec_dir+'../bin/pwrake -q --pwrake-conf=../pwrake_conf.yaml'
 
   @@show_command = false
   @@show_result = false
+
+  def self.show=(f)
+    if f
+      @@show_command = true
+      @@show_result = true
+    else
+      @@show_command = false
+      @@show_result = false
+    end
+  end
 
   def initialize(dir=nil,args=nil)
     @dir = @@spec_dir+(dir||"")
@@ -22,15 +32,17 @@ class Helper
   end
 
   def run
+    cmd = "#{@@pwrake} #{@args}"
     if @@show_command
-      puts "@dir=#{@dir}"
-      puts "@args=#{@args}"
+      puts
+      puts "-- dir: #{@dir}"
+      puts "-- cmd: #{cmd}"
     end
     Dir.chdir(@dir) do
       #system "rm -f *.dat"
       #`rake clean`
       tm = Time.now
-      @result = `#{@@pwrake} -q #{@args}`
+      @result = `#{cmd}`
       @status = $?
       @elapsed_time = Time.now - tm
       system "touch dummy; rm dummy"
@@ -39,7 +51,7 @@ class Helper
     end
     if @@show_result
       puts @result
-      puts "@status=#{@status.inspect}"
+      puts "-- status: #{@status.inspect}\n"
     end
     self
   end
