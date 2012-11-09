@@ -98,7 +98,6 @@ module Pwrake
 
 
     def cd_work_dir
-      puts "cd #{@work_dir}"
       system("cd #{@work_dir}")
     end
 

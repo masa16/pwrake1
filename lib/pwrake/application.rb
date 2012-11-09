@@ -28,12 +28,26 @@ module Pwrake
         @master = Master.new
         load_rakefile
         @master.setup
-        begin
-          @master.start
-          top_level
-          @master.wait
-        ensure
-          @master.finish
+        top_level
+      end
+    end
+
+    # Run the top level tasks of a Rake application.
+    def top_level
+      standard_exception_handling do
+        if options.show_tasks
+          display_tasks_and_comments
+        elsif options.show_prereqs
+          display_prerequisites
+        else
+          begin
+            @master.start
+            top_level_tasks.each { |task_name| invoke_task(task_name) }
+            # top_level
+            @master.wait
+          ensure
+            @master.finish
+          end
         end
       end
     end
