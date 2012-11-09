@@ -9,6 +9,8 @@ RSpec.configure do |config|
   config.run_all_when_everything_filtered = true
 end
 
+Helper.show=false
+
 describe Helper do
 
   %w[ h V C D n N P q g G T t v W X j ].each do |a|
@@ -52,6 +54,12 @@ describe Helper do
       it { should be_success }
       its("output_lines.sort") { should eq read_hosts($hosts).sort }
     end
+  end
+
+  context "dir=006 PASS_ENV" do
+    subject { Helper.new("006","-F ../hosts ENV1=pass_successfully").run }
+    it { should be_success }
+    its(:result) { should eq "pass_successfully\n" }
   end
 
 end
