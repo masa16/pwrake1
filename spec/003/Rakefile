@@ -1,0 +1,9 @@
+task :first do |t, args|
+  puts "#{args.x},#{args.y}"
+end
+
+task :hello, ['x', 'y'] => :first do |t, args|
+  puts "#{args.x},#{args.y}"
+end
+
+task :default => :hello
