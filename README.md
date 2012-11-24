@@ -7,7 +7,7 @@ TODO: Write a gem description
 
 ## Features
 
-* Parallize all tasks; No need to modify Rakefile. No need to use `multitask`.
+* Parallelize all tasks; no need to modify Rakefile, no need to use `multitask`.
 * Tasks are executed in the given number of worker threads.
 * Remote exuecution using SSH.
 * Locality-aware node-selection for Gfarm file system.
