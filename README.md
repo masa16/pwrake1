@@ -37,20 +37,24 @@ Parallel execution using total 2*2 cores at remote 2 hosts:
 * Share your directory via distributed file system such as NFS, Gfarm.
 
 * Allow password-less access via SSH.
-      $ ssh-keygen
-      Generating public/private rsa key pair.
-      Enter file in which to save the key (/home/masa/.ssh/id_rsa): id_rsa_nopw
-      Enter passphrase (empty for no passphrase):      # <= just enter
-      Enter same passphrase again:                     # <= just enter
+
+    $ ssh-keygen
+    Generating public/private rsa key pair.
+    Enter file in which to save the key (/home/masa/.ssh/id_rsa): id_rsa_nopw
+    Enter passphrase (empty for no passphrase):      # <= just enter
+    Enter same passphrase again:                     # <= just enter
     ...
+
 then add an line in id_rsa_nopw.pub to ~/.ssh/authorized_keys at remote hosts.
 
 * Make 'hosts' file in which remote host names and the number of cores are listed.
-      $ cat hosts
-      host1 2
-      host2 2
+
+    $ cat hosts
+    host1 2
+    host2 2
 
 * Parallel and distributed execution on remote hosts listed in a 'hosts' file:
+
     $ pwrake --hostfile=hosts
 
 ## Workflow demo
