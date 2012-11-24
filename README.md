@@ -7,8 +7,8 @@ TODO: Write a gem description
 
 ## Features
 
-* Parallize all tasks; No need to modify Rakefile.
-* Given number of worker threads.
+* Parallize all tasks; No need to modify Rakefile. No need to use `multitask`.
+* Tasks are executed in the given number of worker threads.
 * Remote exuecution using SSH.
 * Locality-aware node-selection for Gfarm file system.
 
@@ -18,7 +18,7 @@ Download source tgz/zip and expand, cd to subdir and install:
 
     $ ruby setup.rb
 
-Or gem install it as:
+Or, gem install:
 
     $ gem install pwrake
 
