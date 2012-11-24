@@ -3,8 +3,6 @@
 Parallel workflow extension for Rake
 * Author: Masahiro Tanaka
 
-TODO: Write a gem description
-
 ## Features
 
 * Parallize all tasks; No need to modify Rakefile. No need to use `multitask`.
@@ -48,12 +46,11 @@ Or, gem install:
 
         $ pwrake --hostfile=hosts
 
+## Tested Platform
+
+* Ruby 1.9.3, 2.0.0-preview1
+* Rake 0.9.2.2
+* Fedora 16 / Debian 5.0.7
+
 ## Workflow demo
 
-## Contributing
-
-1. Fork it
-2. Create your feature branch (`git checkout -b my-new-feature`)
-3. Commit your changes (`git commit -am 'Add some feature'`)
-4. Push to the branch (`git push origin my-new-feature`)
-5. Create new Pull Request
