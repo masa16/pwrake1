@@ -5,6 +5,13 @@ Parallel workflow extension for Rake
 
 TODO: Write a gem description
 
+## Features
+
+* Parallize all tasks; No need to modify Rakefile.
+* Given number of worker threads.
+* Remote exuecution using SSH.
+* Locality-aware node-selection for Gfarm file system.
+
 ## Installation
 
 Download source tgz/zip and expand, cd to subdir and install:
@@ -17,7 +24,20 @@ Or gem install it as:
 
 ## Usage
 
-TODO: Write usage instructions here
+Parallel execution using 4 cores at localhost:
+
+    $ pwrake -j 4
+
+Parallel execution using all cores at localhost:
+
+    $ pwrake -j
+
+Parallel execution using total 2*2 cores at remote hosts listed in a 'hosts' file:
+
+    $ cat hosts
+    host1 2
+    host2 2
+    $ pwrake --hostfile=hosts
 
 ## Workflow demo
 
