@@ -122,7 +122,6 @@ module Pwrake
           else
             options.num_threads = processor_count
           end
-          puts "num_threads=#{options.num_threads}"
         }
        ],
        ['-L', '--logfile [FILE]', "[Pw] Write log to FILE",
@@ -133,6 +132,11 @@ module Pwrake
           else
             options.logfile = ""
           end
+        }
+       ],
+       ['--ssh-opt', '--ssh-option OPTION', "[Pw] Option passed to SSH",
+        lambda { |value|
+          options.ssh_option = value
         }
        ],
        ['--filesystem FILESYSTEM', "[Pw] Specify FILESYSTEM (nfs|gfarm)",

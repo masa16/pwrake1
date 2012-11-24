@@ -28,6 +28,7 @@ module Pwrake
       @option = opt
       @work_dir = @option[:work_dir] || Dir.pwd
       @pass_env = @option[:pass_env]
+      @ssh_opt = @option[:ssh_opt]
       @terminator = ""
       TLEN.times{ @terminator << CHARS[rand(CHARS.length)] }
     end
@@ -38,7 +39,7 @@ module Pwrake
       if ['localhost','localhost.localdomain','127.0.0.1'].include? @host
         [@@nice,@@shell].join(' ')
       else
-        "ssh -x -T -q #{@host} #{@@nice} #{@@shell}"
+        "ssh -x -T -q #{@ssh_opt} #{@host} #{@@nice} #{@@shell}"
       end
     end
 

@@ -6,15 +6,17 @@ module Pwrake
 
   module Option
 
-    DEFAULT_CONFFILES = ["pwrake_conf.yaml"]
+    DEFAULT_CONFFILES = ["pwrake_conf.yaml","PwrakeConf.yaml"]
 
     DEFAULT_OPTIONS = {
       'HOSTFILE' => nil,
       'FILESYSTEM' => nil,
-      'LOGFILE' => "Pwrake%Y%m%d-%H%M%S_%$.log",
+      'LOGFILE' => nil,
+      'DEFAULT_LOGILE' => "Pwrake%Y%m%d-%H%M%S_%$.log",
+      'SSH_OPTION' => nil,
       'TRACE' => false,
       'WORK_DIR' => '$HOME/%CWD_RELATIVE_TO_HOME',
-      'MAIN_HOSTNAME' => `hostname -f`.chomp,
+      'MASTER_HOSTNAME' => `hostname -f`.chomp,
       'GFARM_BASEDIR' => '/tmp',
       'GFARM_PREFIX'  => "pwrake_#{ENV['USER']}",
       'GFARM_SUBDIR'  => '/'
@@ -37,9 +39,23 @@ module Pwrake
     attr_reader :shell_class
 
     # Option order:
-    #  DEFAULT_CONF < pwrake_conf < ENV < command_option
+    #  command_option > ENV > pwrake_conf > DEFAULT_OPTIONS
+
+    def set_option(*keys)
+      key = keys[0]
+      val = Rake.application.options.send(key.downcase.to_sym)
+      keys.each do |k|
+        break if val
+        val = ENV[k.upcase]
+      end
+      val = @opt[key] if val.nil?
+      val = yield(val) if block_given?
+      @opt[key] = val
+      instance_variable_set("@"+key.downcase, val)
+    end
 
     def init_options
+      # Read pwrake_conf
       @pwrake_conf = Rake.application.options.pwrake_conf
 
       if @pwrake_conf
@@ -60,49 +76,31 @@ module Pwrake
 
       @opt['PWRAKE_CONF'] = @pwrake_conf
 
-      DEFAULT_OPTIONS.each do |key,value|
-        if !@opt[key]
-          @opt[key] = value
-        end
-        if value = ENV[key]
-          @opt[key] = value
-        end
+      # load option from ENV > pwrake_conf > DEFAULT_OPTIONS
+      DEFAULT_OPTIONS.each do |key,default_opt|
+        @opt[key] = ENV[key] || @opt[key] || default_opt
       end
 
-      @logfile = Rake.application.options.logfile ||
-        ENV["LOGFILE"] || ENV["LOG"]
-      case @logfile
-      when String
-        if @logfile == ""
-          @logfile = @opt['LOGFILE']
+      # Pwrake options
+      set_option('LOGFILE','LOG') do |val|
+        if val
+          val = @opt['DEFAULT_LOGILE'] if val == ""
+          Time.now.strftime(val).sub("%$",Process.pid.to_s)
         end
-        @logfile = Time.now.strftime(@logfile).sub("%$",Process.pid.to_s)
-      else
-        @logfile = nil
       end
-      @opt['LOGFILE'] = @logfile
-
-      @opt['HOSTFILE'] = @hostfile =
-        Rake.application.options.hostfile ||
-        ENV["HOSTFILE"] || ENV["HOSTS"]
-
-      @opt['FILESYSTEM'] = @filesystem =
-        Rake.application.options.filesystem ||
-        ENV["FILESYSTEM"] || ENV["FS"]
-
-      if n = Rake.application.options.num_threads
-        @opt['NUM_THREADS'] = @num_threads = n.to_i
+      set_option('HOSTFILE','HOSTS')
+      set_option('FILESYSTEM','FS')
+      set_option('SSH_OPTION')
+      set_option('NUM_THREADS') do |val|
+        val && val.to_i
       end
+      set_option('DISABLE_STEAL')
+      set_option('DISABLE_AFFINITY') do |val|
+        val || ENV['AFFINITY']=='off'
+      end
+      @opt['WORK_DIR'].sub!('%CWD_RELATIVE_TO_HOME',cwd_relative_to_home)
 
-      @opt['DISABLE_STEAL'] =
-        Rake.application.options.disable_steal ||
-        ENV['DISABLE_STEAL']
-
-      @opt['DISABLE_AFFINITY'] =
-        Rake.application.options.disable_affinity ||
-        ENV['DISABLE_AFFINITY'] ||
-        ENV['AFFINITY']=='off'
-
+      # Rake options
       @opt['TRACE'] = Rake.application.options.trace
       @opt['VERBOSE'] = true if Rake.verbose
       @opt['SILENT'] = true if !Rake.verbose
@@ -110,8 +108,6 @@ module Pwrake
       #@opt['RAKEFILE'] =
       #@opt['LIBDIR'] =
       @opt['RAKELIBDIR'] = Rake.application.options.rakelib.join(':')
-
-      @opt['WORK_DIR'].sub!('%CWD_RELATIVE_TO_HOME',cwd_relative_to_home)
     end
 
     def cwd_relative_to_home
@@ -247,6 +243,7 @@ module Pwrake
         @shell_opt   = {
           :work_dir  => Dir.pwd,
           :pass_env  => @opt['PASS_ENV'],
+          :ssh_opt   => @opt['SSH_OPTION'],
           :disable_steal => @opt['DISABLE_STEAL'],
           :single_mp => @opt['GFARM_SINGLE_MP'],
           :basedir   => @opt['GFARM_BASEDIR'],
@@ -258,7 +255,8 @@ module Pwrake
         @shell_class = Shell
         @shell_opt   = {
           :work_dir  => @opt['WORK_DIR'],
-          :pass_env  => @opt['PASS_ENV']
+          :pass_env  => @opt['PASS_ENV'],
+          :ssh_opt   => @opt['SSH_OPTION']
         }
         @queue_class = TaskQueue
       end
