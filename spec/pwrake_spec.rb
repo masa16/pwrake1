@@ -12,7 +12,7 @@ Helper.show=false
 
 describe Helper do
 
-  %w[ h V C D n N P q g G T t v W X j ].each do |a|
+  %w[ h V D n N P q g G T t v W X j ].each do |a|
     context "dir=001 arg=-#{a}" do
       subject { Helper.new("001","-"+a).run }
       it { should be_success }
