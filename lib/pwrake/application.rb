@@ -108,8 +108,8 @@ module Pwrake
           options.hostfile = value
         }
        ],
-       ['-j', '--num_threads [N]',
-        "[Pw] Number of threads in single node",
+       ['-j', '--jobs [N]',
+        "[Pw] Number of threads at localhost (default: # of processors)",
         lambda { |value|
           if value
             value = value.to_i
