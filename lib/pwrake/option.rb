@@ -12,14 +12,14 @@ module Pwrake
       'HOSTFILE' => nil,
       'FILESYSTEM' => nil,
       'LOGFILE' => nil,
-      'DEFAULT_LOGILE' => "Pwrake%Y%m%d-%H%M%S_%$.log",
       'SSH_OPTION' => nil,
       'TRACE' => false,
-      'WORK_DIR' => '$HOME/%CWD_RELATIVE_TO_HOME',
-      'MASTER_HOSTNAME' => `hostname -f`.chomp,
       'GFARM_BASEDIR' => '/tmp',
       'GFARM_PREFIX'  => "pwrake_#{ENV['USER']}",
-      'GFARM_SUBDIR'  => '/'
+      'GFARM_SUBDIR'  => '/',
+      'MASTER_HOSTNAME' => `hostname -f`.chomp,
+      'WORK_DIR' => '$HOME/%CWD_RELATIVE_TO_HOME',
+      'DEFAULT_LOGFILE' => "Pwrake%Y%m%d-%H%M%S_%$.log"
     }
 
     # ----- init -----
@@ -84,7 +84,7 @@ module Pwrake
       # Pwrake options
       set_option('LOGFILE','LOG') do |val|
         if val
-          val = @opt['DEFAULT_LOGILE'] if val == ""
+          val = @opt['DEFAULT_LOGFILE'] if val == ""
           Time.now.strftime(val).sub("%$",Process.pid.to_s)
         end
       end
