@@ -55,9 +55,7 @@ module Pwrake
     def invoke_task(task_string)
       name, args = parse_task_string(task_string)
       t = self[name]
-      #task_queue.halt
       t.search(*args)
-      #task_queue.resume
     end
 
     # Read and handle the command line options.

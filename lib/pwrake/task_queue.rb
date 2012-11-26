@@ -40,20 +40,9 @@ module Pwrake
       end
     end
 
-=begin
-    def enq(task)
-      Log.debug "--- #{self.class}#enq #{task.inspect}"
-      @mutex.synchronize do
-        enq_impl(task)
-        @cv.signal
-      end
-    end
-=end
-
     def enq_impl(task)
       @q.push(task)
     end
-
 
 
     def deq(host=nil)
