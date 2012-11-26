@@ -1,5 +1,3 @@
-require "thread"
-
 module Pwrake
 
   class Shell

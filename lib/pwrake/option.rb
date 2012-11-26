@@ -227,16 +227,20 @@ module Pwrake
       end
     end
 
+
     def set_filesystem
 
       if @filesystem.nil?
-        if GfarmPath.gfarm2fs?
+        case mount_type
+        when /gfarm2fs/
           @opt['FILESYSTEM'] = @filesystem = 'gfarm'
         end
       end
 
       case @filesystem
       when 'gfarm'
+        require "pwrake/locality_aware_queue"
+        require "pwrake/gfarm_feature"
         GfarmPath.subdir = @opt['GFARM_SUBDIR']
         @filesystem  = 'gfarm'
         @shell_class = GfarmShell
@@ -260,6 +264,29 @@ module Pwrake
         }
         @queue_class = TaskQueue
       end
+    end
+
+    def mount_type(d=nil)
+      mtab = '/etc/mtab'
+      if File.exist?(mtab)
+        d ||= mountpoint_of_cwd
+        open(mtab,'r') do |f|
+          f.each_line do |l|
+            if /#{d} (?:type )?(\S+)/o =~ l
+              return $1
+            end
+          end
+        end
+      end
+      nil
+    end
+
+    def mountpoint_of_cwd
+      d = Pathname.pwd
+      while !d.mountpoint?
+        d = d.parent
+      end
+      d
     end
 
     # ----- finish -----

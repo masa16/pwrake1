@@ -1,5 +1,3 @@
-require "pathname"
-
 module Pwrake
 
   module GfarmPath
