@@ -61,4 +61,11 @@ describe Helper do
     its(:result) { should eq "pass_successfully\n" }
   end
 
+  # context "dir=007 invoke-in-task", :focus=>true do
+  context "dir=007 invoke-in-task" do
+    subject { Helper.new("007","-j10").run }
+    it { should be_success }
+    its(:elapsed_time) { should be_within(1).of(1) }
+  end
+
 end
