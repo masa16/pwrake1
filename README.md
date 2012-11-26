@@ -8,7 +8,8 @@ Parallel workflow extension for Rake
 * Parallelize all tasks; no need to modify Rakefile, no need to use `multitask`.
 * Tasks are executed in the given number of worker threads.
 * Remote exuecution using SSH.
-* Locality-aware node-selection for Gfarm file system.
+* Pwrake is an extension to Rake, not patch to Rake: Rake and Pwrake coexist.
+* High parallel I/O performance using Gfarm file system.
 
 ## Installation
 
