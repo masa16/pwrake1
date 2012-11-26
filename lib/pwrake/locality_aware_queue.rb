@@ -1,5 +1,12 @@
 module Pwrake
 
+  class Task
+    def assigned
+      @assigned ||= []
+    end
+  end
+
+
   class LocalityAwareQueue < TaskQueue
 
     class Throughput

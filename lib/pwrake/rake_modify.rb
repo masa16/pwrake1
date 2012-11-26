@@ -4,18 +4,10 @@ module Rake
 
   class Task
     include Pwrake::TaskAlgorithm
-    attr_accessor :output_queue
 
-    def assigned
-      @assigned ||= []
-    end
-
-    def location
-      @location ||= []
-    end
-
-    def location=(a)
-      @location = a
+    alias invoke_orig :invoke
+    def invoke(*args)
+      search(*args)
     end
   end
 

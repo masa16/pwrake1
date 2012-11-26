@@ -102,20 +102,6 @@ module Pwrake
       system("cd #{@work_dir}")
     end
 
-    def log_execute(task)
-      prereq_name = task.prerequisites[0]
-      if task.kind_of? Rake::FileTask and prereq_name
-        scheduled = task.location
-        Pwrake.application.count( scheduled, @host )
-        if scheduled and scheduled.include? @host
-          compare = "=="
-        else
-          compare = "!="
-        end
-        Log.info "-- access to #{prereq_name}: file_host=#{scheduled.inspect} #{compare} exec_host=#{@host}"
-      end
-    end
-
 
     END {
       OPEN_LIST.map do |k,v|

@@ -5,6 +5,14 @@ module Pwrake
 
   module TaskAlgorithm
 
+    def location
+      @location ||= []
+    end
+
+    def location=(a)
+      @location = a
+    end
+
     # Execute the actions associated with this task.
     def pw_execute(args=nil) # execute_action(args=nil)
       args ||= Rake::EMPTY_TASK_ARGS
@@ -113,6 +121,23 @@ module Pwrake
       flags.empty? ? "" : "(" + flags.join(", ") + ")"
     end
     private :format_search_flags
+
+
+    def log_host(exec_host)
+      # exec_host = Pwrake.current_shell.host
+      prereq_name = @prerequisites[0]
+      if kind_of?(Rake::FileTask) and prereq_name
+        Pwrake.application.count( @location, exec_host )
+        if @location and @location.include? exec_host
+          compare = "=="
+        else
+          compare = "!="
+        end
+        Log.info "-- access to #{prereq_name}: file_host=#{@location.inspect} #{
+compare} exec_host=#{exec_host}"
+      end
+    end
+
   end
 
 end # module Pwrake

@@ -68,7 +68,7 @@ module Pwrake
       standard_exception_handling do
         while t = @task_queue.deq
           Log.debug "-- Master#thread_loop deq t=#{t.inspect}"
-          conn.log_execute(t)
+          t.log_host(conn.host)
           t.pw_invoke
         end
       end
