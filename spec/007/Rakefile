@@ -1,14 +1,20 @@
 
 t = task "A" do |t|
+  puts "task A #{Thread.current.inspect}"
   c = 10.times.map do |i|
     task "C#{i}" do |t|
+      puts "task #{t.name} #{Thread.current.inspect}"
       sh "echo #{t.name}; sleep 1"
     end.name
   end
 
   (task "B" => c).invoke
+  puts "========================== invoke end"
 end
 
-puts "task.location=#{task.location}"
+task :default => ["A"] do |t|
+  puts "task #{t.name} #{Thread.current.inspect}"
+end
 
-task :default => ["A"]
+
+p Thread.current
