@@ -40,7 +40,6 @@ module Pwrake
       if @halt
         if th = @reservation[item]
           @reserved_q[th] = item
-          #th.run
         else
           enq_impl(item,hint)
         end
@@ -48,7 +47,6 @@ module Pwrake
         @mutex.synchronize do
           if th = @reservation[item]
             @reserved_q[th] = item
-            #th.run
           else
             enq_impl(item,hint)
             @cv.signal
@@ -57,7 +55,6 @@ module Pwrake
       end
       @reserved_q.keys.each{|th|
         Log.debug "--- run #{th}";
-        #print "--- run #{th}\n";
         th.run
       }
     end
