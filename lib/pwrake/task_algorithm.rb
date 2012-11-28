@@ -13,8 +13,46 @@ module Pwrake
       @location = a
     end
 
+
+    def invoke_modify(*args)
+      task_args = TaskArguments.new(arg_names, args)
+      search_with_call_chain(self, task_args, InvocationChain::EMPTY)
+
+      if conn = Pwrake.current_shell
+        @waiting_thread = nil
+        application.thread_loop(conn,self)
+      else
+        @waiting_thread = Thread.current
+        Log.debug "!!!!!! sleep in invoke_modify #{self.name} #{@waiting_thread.inspect}!!!!!!"
+        sleep
+        Log.debug "!!!!!! awake in invoke_modify !!!!!!"
+        pw_invoke
+      end
+    end
+
+    def wake_thread
+      if th = @waiting_thread
+        th.run
+        return true
+      end
+      nil
+    end
+
+
+    def pw_invoke
+      shell = Pwrake.current_shell
+      log_host(shell.host) if shell
+      @lock.synchronize do
+        return if @already_invoked
+        @already_invoked = true
+      end
+      pw_execute(@arg_data) if needed?
+      pw_enq_subsequents
+    end
+
+
     # Execute the actions associated with this task.
-    def pw_execute(args=nil) # execute_action(args=nil)
+    def pw_execute(args=nil)
       args ||= Rake::EMPTY_TASK_ARGS
       if application.options.dryrun
         Log.info "** Execute (dry run) #{name}"
@@ -34,21 +72,18 @@ module Pwrake
       end
     end
 
-    def pw_invoke # execute_task
+    def pw_enq_subsequents
       @lock.synchronize do
-        return if @already_invoked
-        @already_invoked = true
-      end
-      pw_execute(@arg_data) if needed?
-      @lock.synchronize do
-        @postrequisite.each do |t|
-          if t.nil?
-            application.task_queue.finish
-          elsif t.ready_for_invoke(self.name)        # <<---  competition !!!
-            application.task_queue.enq t
+        @subsequents.each do |t|
+          next if t.nil?
+          if t.ready_for_invoke(self.name)        # <<---  competition !!!
+            Log.debug "--- t=#{t.inspect} ready_for_invoke in pw_enq_subsequents"
+            if !t.wake_thread
+              application.task_queue.enq(t)
+            end
           end
         end
-        @already_finished = true                     # <<---  competition !!!
+        @already_finished = true                  # <<---  competition !!!
       end
     end
 
@@ -62,6 +97,7 @@ module Pwrake
       return false
     end
 
+
     def search(*args)
       task_args = TaskArguments.new(arg_names, args)
       search_with_call_chain(nil, task_args, InvocationChain::EMPTY)
@@ -69,18 +105,18 @@ module Pwrake
 
     # Same as search, but explicitly pass a call chain to detect
     # circular dependencies.
-    def search_with_call_chain(postreq, task_args, invocation_chain) # :nodoc:
+    def search_with_call_chain(subseq, task_args, invocation_chain) # :nodoc:
       new_chain = InvocationChain.append(self, invocation_chain)
       @lock.synchronize do
         if application.options.trace
           Log.info "** Search #{name} #{format_search_flags}"
         end
-        return true if @already_finished                # <<---  competition !!!
-        @postrequisite ||= []
-        if @postrequisite.include?(postreq)
-          raise "multiplly provided post-requisistes"
+        return true if @already_finished             # <<---  competition !!!
+        @subsequents ||= []
+        if @subsequents.include?(subseq)
+          raise "multiplly provided subsequents"
         end
-        @postrequisite << postreq                       # <<--- competition !!!
+        @subsequents << subseq                       # <<--- competition !!!
         return false if @already_searched
         @already_searched = true
         @arg_data = task_args
@@ -109,7 +145,6 @@ module Pwrake
           application.task_queue.enq self
         end
       end
-      #sleep 0.001
     end
 
     # Format the trace flags for display.
@@ -133,8 +168,7 @@ module Pwrake
         else
           compare = "!="
         end
-        Log.info "-- access to #{prereq_name}: file_host=#{@location.inspect} #{
-compare} exec_host=#{exec_host}"
+        Log.info "-- access to #{prereq_name}: file_host=#{@location.inspect} #{compare} exec_host=#{exec_host}"
       end
     end
 

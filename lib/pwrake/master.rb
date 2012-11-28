@@ -36,13 +36,10 @@ module Pwrake
       start_threads
     end
 
-    def wait
-      @threads.each{|t| t.join }
-    end
-
     def finish
       Log.debug "-- Master#finish called"
       @task_queue.finish if @task_queue
+      @threads.each{|t| t.join }
       @counter.print
       finish_option   # Pwrake::Option
     end
@@ -64,12 +61,14 @@ module Pwrake
       end
     end
 
-    def thread_loop(conn)
+    def thread_loop(conn,last=nil)
+      @task_queue.reserve(last) if last
+      hint = (conn) ? conn.host : nil
       standard_exception_handling do
-        while t = @task_queue.deq
+        while t = @task_queue.deq(hint)
           Log.debug "-- Master#thread_loop deq t=#{t.inspect}"
-          t.log_host(conn.host)
           t.pw_invoke
+          return if t == last
         end
       end
     end

@@ -21,6 +21,10 @@ module Pwrake
       @master.task_queue
     end
 
+    def thread_loop(*args)
+      @master.thread_loop(*args)
+    end
+
     # Run the Pwrake application.
     def run
       standard_exception_handling do
@@ -43,8 +47,6 @@ module Pwrake
           begin
             @master.start
             top_level_tasks.each { |task_name| invoke_task(task_name) }
-            # top_level
-            @master.wait
           ensure
             @master.finish
           end
@@ -52,11 +54,11 @@ module Pwrake
       end
     end
 
-    def invoke_task(task_string)
-      name, args = parse_task_string(task_string)
-      t = self[name]
-      t.search(*args)
-    end
+    #def invoke_task(task_string)
+    #  name, args = parse_task_string(task_string)
+    #  t = self[name]
+    #  t.invoke(*args)
+    #end
 
     # Read and handle the command line options.
     def handle_options

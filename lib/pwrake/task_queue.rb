@@ -2,7 +2,7 @@ module Pwrake
 
   class TaskQueue
 
-    def initialize(hosts=[])
+    def initialize(*args)
       @finished = false
       @halt = false
       @mutex = Mutex.new
@@ -10,10 +10,16 @@ module Pwrake
       @th_end = []
       @enable_steal = true
       @q = []
+      @reservation = {}
+      @reserved_q = {}
     end
 
     attr_reader :mutex
     attr_accessor :enable_steal
+
+    def reserve(item)
+      @reservation[item] = Thread.current
+    end
 
     def halt
       @mutex.synchronize do
@@ -28,46 +34,67 @@ module Pwrake
       end
     end
 
-    def enq(task)
-      Log.debug "--- #{self.class}#enq #{task.inspect}"
+    def enq(item,hint=nil)
+      Log.debug "--- #{self.class}#enq #{item.inspect}"
+      th = nil
       if @halt
-        enq_impl(task)
+        if th = @reservation[item]
+          @reserved_q[th] = item
+          #th.run
+        else
+          enq_impl(item,hint)
+        end
       else
         @mutex.synchronize do
-          enq_impl(task)
-          @cv.signal
+          if th = @reservation[item]
+            @reserved_q[th] = item
+            #th.run
+          else
+            enq_impl(item,hint)
+            @cv.signal
+          end
         end
       end
+      @reserved_q.keys.each{|th|
+        Log.debug "--- run #{th}";
+        #print "--- run #{th}\n";
+        th.run
+      }
     end
 
-    def enq_impl(task)
-      @q.push(task)
+    def enq_impl(item,hint)
+      @q.push(item)          # FIFO Queue
     end
 
 
-    def deq(host=nil)
-      Log.debug "--- #{self.class}#deq @halt=#{@halt.inspect}"
-      @mutex.synchronize do
-        n = 0
-        loop do
+    def deq(hint=nil)
+      Log.debug "--- #{self.class}#deq @halt=#{@halt.inspect} @q=#{@q.inspect} @reserved_q=#{@reserved_q.inspect} Thread.current=#{Thread.current}"
+      n = 0
+      loop do
+        @mutex.synchronize do
           if @th_end.first == Thread.current
             @th_end.shift
             return false
+
           elsif @halt
             Log.debug "--- halt in #{self.class}#deq @q=#{@q.inspect}"
-            # @cv.wait(@mutex,1000)
             @cv.wait(@mutex)
-          elsif empty? # no task in queue
+
+          elsif item = @reserved_q.delete(Thread.current)
+            Log.debug "--- deq from reserved_q=#{item.inspect}"
+            return item
+
+          elsif empty? # no item in queue
             Log.debug "--- empty=true in #{self.class}#deq @finished=#{@finished.inspect}"
             if @finished
               @cv.signal
               return false
             end
-            # @cv.wait(@mutex,1000)
             @cv.wait(@mutex)
             Log.debug "--- waited in #{self.class}#deq @finished=#{@finished.inspect}"
+
           else
-            if t = deq_impl(host,n)
+            if t = deq_impl(hint,n)
               Log.debug "--- #{self.class}#deq #{t.inspect}"
               return t
             end
@@ -77,16 +104,17 @@ module Pwrake
       end
     end
 
-    def deq_impl(host,n)
-      @q.shift
+    def deq_impl(hint,n)
+      @q.shift               # FIFO Queue
     end
 
     def clear
       @q.clear
+      @reserved_q.clear
     end
 
     def empty?
-      @q.empty?
+      @q.empty? && @reserved_q.empty?
     end
 
     def finish
