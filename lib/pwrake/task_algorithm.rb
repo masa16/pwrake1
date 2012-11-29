@@ -16,7 +16,9 @@ module Pwrake
 
     def invoke_modify(*args)
       task_args = TaskArguments.new(arg_names, args)
+      application.task_queue.halt
       search_with_call_chain(self, task_args, InvocationChain::EMPTY)
+      application.task_queue.resume
 
       if conn = Pwrake.current_shell
         @waiting_thread = nil
@@ -47,6 +49,7 @@ module Pwrake
         @already_invoked = true
       end
       pw_execute(@arg_data) if needed?
+      # Log.debug "-- end_exec:#{self.inspect}, @subsequents=#{@subsequents.inspect}"
       pw_enq_subsequents
     end
 
@@ -88,6 +91,7 @@ module Pwrake
     end
 
     def ready_for_invoke(prereq)
+      @lock.synchronize do
       @unfinished_prereq = @prerequisites.dup if !@unfinished_prereq
       @unfinished_prereq.delete(prereq)
       if @unfinished_prereq.empty?
@@ -95,6 +99,7 @@ module Pwrake
         return true
       end
       return false
+      end
     end
 
 

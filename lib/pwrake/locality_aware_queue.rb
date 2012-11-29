@@ -88,7 +88,7 @@ module Pwrake
 
     def thread_loop
       while !@finished
-        Log.debug "------------------------------- #{self.class}#thread_loop"
+        Log.debug "-- #{self.class}#thread_loop @q1=#{@q1.inspect} @q2=#{@q2.inspect}"
         @mutex.synchronize do
           if !@q1.empty?
             bulk_mvq
@@ -100,7 +100,7 @@ module Pwrake
 
 
     def bulk_mvq(nq=0)
-      Log.debug "--- #{self.class}#bulk_mvq nq=#{nq} @q1=#{@q1.inspect}"
+      #Log.debug "--- #{self.class}#bulk_mvq nq=#{nq} @q1=#{@q1.inspect}"
       if nq > 0
         a = @q1[0...nq] || []
         @q1 = @q1[nq..-1] || []
@@ -152,7 +152,7 @@ module Pwrake
 
 
     def deq_impl(host,n)
-      Log.debug "--- #{self.class}#deq_impl host=#{host} n=#{n} @q1=#{@q1.inspect}"
+      #Log.debug "--- #{self.class}#deq_impl host=#{host} n=#{n} @q1=#{@q1.inspect}"
       if t = deq_locate(host)
         return t
       end
