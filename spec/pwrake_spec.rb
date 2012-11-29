@@ -44,14 +44,14 @@ describe Helper do
   context "dir=004 -j4 elapsed time" do
     subject { Helper.new("004","-j4").run }
     it { should be_success }
-    its(:elapsed_time) { should be_within(1).of(4) }
+    its(:elapsed_time) { should be_within(1).of(2) }
   end
 
   if File.exist?($hosts)
     context "dir=005 --hostfile" do
       subject { Helper.new("005","-F ../hosts").run }
       it { should be_success }
-      its("output_lines.sort") { should eq read_hosts($hosts).sort }
+      its("output_lines.sort") { should eq Helper.read_hosts($hosts,true).sort }
     end
   end
 

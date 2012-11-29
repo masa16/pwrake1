@@ -1,6 +1,6 @@
 A = 4.times.map do |i|
   file "A#{i}" do |t|
-    sh "sleep 3"
+    sh "sleep 1"
   end.name
 end
 

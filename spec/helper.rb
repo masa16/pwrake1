@@ -32,7 +32,7 @@ class Helper
   end
 
   def run
-    cmd = "#{@@pwrake} #{@args}"
+    cmd = "sh -c '#{@@pwrake} #{@args} 2>&1'"
     if @@show_command
       puts
       puts "-- dir: #{@dir}"
@@ -63,19 +63,22 @@ class Helper
   def output_lines
     @result.split("\n")
   end
-end
 
-def read_hosts(file)
-  cores = []
-  open(file) do |f|
-    while l = f.gets
-      l = $1 if /^([^#]*)#/ =~ l
-      host, ncore, group = l.split
-      if host
-        ncore = (ncore || 1).to_i
-        cores.concat( [host] * ncore )
+
+  def self.read_hosts(file,ssh=nil)
+    cores = []
+    open(file) do |f|
+      while l = f.gets
+        l = $1 if /^([^#]*)#/ =~ l
+        host, ncore, group = l.split
+        if host
+          host = `ssh #{host} hostname`.chomp if ssh
+          ncore = (ncore || 1).to_i
+          cores.concat( [host] * ncore )
+        end
       end
     end
+    cores
   end
-  cores
+
 end

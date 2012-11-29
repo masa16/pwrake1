@@ -1,5 +1,5 @@
 require "../helper"
-$cores = read_hosts("../hosts")
+$cores = Helper.read_hosts("../hosts")
 
 $tasks = $cores.each_with_index.map do |h,i|
   task "#{h}_#{i}" do |t|
