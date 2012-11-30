@@ -44,7 +44,7 @@ describe Helper do
   context "dir=004 -j4 elapsed time" do
     subject { Helper.new("004","-j4").run }
     it { should be_success }
-    its(:elapsed_time) { should be_within(1).of(2) }
+    its(:elapsed_time) { should be_within(1).of(2) } # 1..3 sec
   end
 
   if File.exist?($hosts)
@@ -65,7 +65,7 @@ describe Helper do
   context "dir=007 invoke-in-task" do
     subject { Helper.new("007","-j10").run }
     it { should be_success }
-    its(:elapsed_time) { should be_within(1).of(1) }
+    its(:elapsed_time) { should be_within(1).of(2) } # 1..3 sec
   end
 
 end
