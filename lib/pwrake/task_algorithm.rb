@@ -16,9 +16,9 @@ module Pwrake
 
     def invoke_modify(*args)
       task_args = TaskArguments.new(arg_names, args)
-      application.task_queue.halt
+      #application.task_queue.halt
       search_with_call_chain(self, task_args, InvocationChain::EMPTY)
-      application.task_queue.resume
+      #application.task_queue.resume
 
       if conn = Pwrake.current_shell
         @waiting_thread = nil
@@ -32,14 +32,6 @@ module Pwrake
       end
     end
 
-    def wake_thread
-      if th = @waiting_thread
-        th.run
-        return true
-      end
-      nil
-    end
-
 
     def pw_invoke
       shell = Pwrake.current_shell
@@ -49,7 +41,6 @@ module Pwrake
         @already_invoked = true
       end
       pw_execute(@arg_data) if needed?
-      # Log.debug "-- end_exec:#{self.inspect}, @subsequents=#{@subsequents.inspect}"
       pw_enq_subsequents
     end
 
@@ -77,35 +68,23 @@ module Pwrake
 
     def pw_enq_subsequents
       @lock.synchronize do
-        @subsequents.each do |t|
-          next if t.nil?
-          if t.ready_for_invoke(self.name)        # <<---  competition !!!
-            Log.debug "--- t=#{t.inspect} ready_for_invoke in pw_enq_subsequents"
-            if !t.wake_thread
-              application.task_queue.enq(t)
-            end
-          end
+        my_name = self.name
+        @subsequents.each do |t|        # <<--- competition !!!
+          t && t.check_and_enq(my_name)
         end
-        @already_finished = true                  # <<---  competition !!!
+        @already_finished = true        # <<--- competition !!!
       end
     end
 
-    def ready_for_invoke(prereq)
-      @lock.synchronize do
-      @unfinished_prereq = @prerequisites.dup if !@unfinished_prereq
-      @unfinished_prereq.delete(prereq)
+    def check_and_enq(preq_name=nil)
+      @unfinished_prereq.delete(preq_name)
       if @unfinished_prereq.empty?
-        @unfinished_prereq = nil
-        return true
+        if @waiting_thread
+          @waiting_thread.wakeup
+        else
+          application.task_queue.enq(self)
+        end
       end
-      return false
-      end
-    end
-
-
-    def search(*args)
-      task_args = TaskArguments.new(arg_names, args)
-      search_with_call_chain(nil, task_args, InvocationChain::EMPTY)
     end
 
     # Same as search, but explicitly pass a call chain to detect
@@ -116,16 +95,16 @@ module Pwrake
         if application.options.trace
           Log.info "** Search #{name} #{format_search_flags}"
         end
-        return true if @already_finished             # <<---  competition !!!
+
+        return true if @already_finished # <<--- competition !!!
         @subsequents ||= []
-        if @subsequents.include?(subseq)
-          raise "multiplly provided subsequents"
+        @subsequents << subseq           # <<--- competition !!!
+
+        if ! @already_searched
+          @already_searched = true
+          @arg_data = task_args
+          search_prerequisites(task_args, new_chain)
         end
-        @subsequents << subseq                       # <<--- competition !!!
-        return false if @already_searched
-        @already_searched = true
-        @arg_data = task_args
-        search_prerequisites(task_args, new_chain)
         return false
       end
     rescue Exception => ex
@@ -135,21 +114,14 @@ module Pwrake
 
     # Search all the prerequisites of a task.
     def search_prerequisites(task_args, invocation_chain) # :nodoc:
-      if @prerequisites.empty?
-        application.task_queue.enq self
-      else
-        all_finished = true
-        prerequisite_tasks.each { |prereq|
-          #prereq_args = task_args.new_scope(prereq.arg_names) # in vain
-          if !prereq.search_with_call_chain(self, task_args, invocation_chain)
-            all_finished = false
-          end
-        }
-        if all_finished
-          Log.debug "--- all_finished: #{name}'s prereq"
-          application.task_queue.enq self
+      @unfinished_prereq = @prerequisites.dup
+      prerequisite_tasks.each { |prereq|
+        #prereq_args = task_args.new_scope(prereq.arg_names) # in vain
+        if prereq.search_with_call_chain(self, task_args, invocation_chain)
+          @unfinished_prereq.delete(prereq.name)
         end
-      end
+      }
+      check_and_enq
     end
 
     # Format the trace flags for display.
