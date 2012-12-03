@@ -68,4 +68,10 @@ describe Helper do
     its(:elapsed_time) { should be_within(1).of(2) } # 1..3 sec
   end
 
+  context "dir=008 --show-conf & PASS_ENV" do
+    subject { Helper.new("008","--show-conf ENV1=hoge").run }
+    it { should be_success }
+    its(:result) { should match(/  ENV1: hoge/) }
+  end
+
 end
