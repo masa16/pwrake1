@@ -18,3 +18,5 @@ end
 
 
 p Thread.current
+
+p RUBY_RELEASE_DATE
