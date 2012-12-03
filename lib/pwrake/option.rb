@@ -23,13 +23,23 @@ module Pwrake
        'GNU_TIME',
        'HALT_QUEUE_WHILE_SEARCH',
        'SHOW_CONF',
-       'PROFILE',
 
        ['HOSTFILE','HOSTS'],
        ['LOGFILE','LOG',
         proc{|v|
           if v
-            v = "Pwrake%Y%m%d-%H%M%S_%$.log" if v == ""
+            if v == "" || !v.kind_of?(String)
+              v = "Pwrake%Y%m%d-%H%M%S_%$.log"
+            end
+            Time.now.strftime(v).sub("%$",Process.pid.to_s)
+          end
+        }],
+       ['PROFILE',
+        proc{|v|
+          if v
+            if v == "" || !v.kind_of?(String)
+              v = "Pwrake%Y%m%d-%H%M%S_%$.csv"
+            end
             Time.now.strftime(v).sub("%$",Process.pid.to_s)
           end
         }],
