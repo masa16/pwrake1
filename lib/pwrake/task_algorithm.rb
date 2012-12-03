@@ -16,18 +16,19 @@ module Pwrake
 
     def invoke_modify(*args)
       task_args = TaskArguments.new(arg_names, args)
-      #application.task_queue.halt
+      flag = application.pwrake_options['HALT_QUEUE_WHILE_SEARCH']
+      application.task_queue.halt if flag
       search_with_call_chain(self, task_args, InvocationChain::EMPTY)
-      #application.task_queue.resume
+      application.task_queue.resume if flag
 
       if conn = Pwrake.current_shell
         @waiting_thread = nil
         application.thread_loop(conn,self)
       else
         @waiting_thread = Thread.current
-        Log.debug "!!!!!! sleep in invoke_modify #{self.name} #{@waiting_thread.inspect}!!!!!!"
+        Log.debug "--- sleep in invoke_modify #{self.name} #{@waiting_thread.inspect}"
         sleep
-        Log.debug "!!!!!! awake in invoke_modify !!!!!!"
+        Log.debug "--- awake in invoke_modify"
         pw_invoke
       end
     end
@@ -35,13 +36,17 @@ module Pwrake
 
     def pw_invoke
       shell = Pwrake.current_shell
-      log_host(shell.host) if shell
+      if shell
+        shell.current_task = self
+        log_host(shell.host)
+      end
       @lock.synchronize do
         return if @already_invoked
         @already_invoked = true
       end
       pw_execute(@arg_data) if needed?
       pw_enq_subsequents
+      shell.current_task = nil if shell
     end
 
 

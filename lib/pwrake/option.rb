@@ -1,26 +1,50 @@
 module Pwrake
 
-  def self.option
-    @option ||= Option.new
-  end
-
   module Option
 
     DEFAULT_CONFFILES = ["pwrake_conf.yaml","PwrakeConf.yaml"]
 
-    DEFAULT_OPTIONS = {
-      'HOSTFILE' => nil,
-      'FILESYSTEM' => nil,
-      'LOGFILE' => nil,
-      'SSH_OPTION' => nil,
-      'TRACE' => false,
-      'GFARM_BASEDIR' => '/tmp',
-      'GFARM_PREFIX'  => "pwrake_#{ENV['USER']}",
-      'GFARM_SUBDIR'  => '/',
-      'MASTER_HOSTNAME' => `hostname -f`.chomp,
-      'WORK_DIR' => '$HOME/%CWD_RELATIVE_TO_HOME',
-      'DEFAULT_LOGFILE' => "Pwrake%Y%m%d-%H%M%S_%$.log"
-    }
+    def option_data
+      [
+       'DRYRUN',
+       'IGNORE_SYSTEM',
+       'IGNORE_DEPRECATE',
+       'LOAD_SYSTEM',
+       'NOSEARCH',
+       'RAKELIB',
+       'SHOW_PREREQS',
+       'SILENT',
+       'TRACE',
+       'TRACE_RULES',
+
+       'FILESYSTEM',
+       'SSH_OPTION',
+       'PASS_ENV',
+       'GNU_TIME',
+       'HALT_QUEUE_WHILE_SEARCH',
+       'SHOW_CONF',
+
+       ['HOSTFILE','HOSTS'],
+       ['LOGFILE','LOG',
+        proc{|v|
+          if v
+            v = "Pwrake%Y%m%d-%H%M%S_%$.log" if v == ""
+            Time.now.strftime(v).sub("%$",Process.pid.to_s)
+          end
+        }],
+       ['NUM_THREADS', proc{|v| v && v.to_i}],
+       ['DISABLE_AFFINITY', proc{|v| v || ENV['AFFINITY']=='off'}],
+       ['GFARM_BASEDIR', proc{|v| v || '/tmp'}],
+       ['GFARM_PREFIX', proc{|v| v || "pwrake_#{ENV['USER']}"}],
+       ['GFARM_SUBDIR', proc{|v| v || '/'}],
+       ['MASTER_HOSTNAME', proc{|v| v || `hostname -f`.chomp}],
+       ['WORK_DIR',proc{|v|
+          v ||= '$HOME/%CWD_RELATIVE_TO_HOME'
+          v.sub('%CWD_RELATIVE_TO_HOME',cwd_relative_to_home)
+        }]
+      ]
+    end
+
 
     # ----- init -----
 
@@ -29,6 +53,11 @@ module Pwrake
       init_options
       init_pass_env
       init_logger
+      if @opts['SHOW_CONF']
+        require "yaml"
+        YAML.dump(@opts,$stdout)
+        exit
+      end
       @counter = Counter.new
     end
 
@@ -38,20 +67,9 @@ module Pwrake
     attr_reader :queue_class
     attr_reader :shell_class
 
-    # Option order:
-    #  command_option > ENV > pwrake_conf > DEFAULT_OPTIONS
 
-    def set_option(*keys)
-      key = keys[0]
-      val = Rake.application.options.send(key.downcase.to_sym)
-      keys.each do |k|
-        break if val
-        val = ENV[k.upcase]
-      end
-      val = @opt[key] if val.nil?
-      val = yield(val) if block_given?
-      @opt[key] = val
-      instance_variable_set("@"+key.downcase, val)
+    def pwrake_options
+      @opts
     end
 
     def init_options
@@ -67,47 +85,55 @@ module Pwrake
       end
 
       if @pwrake_conf.nil?
-        @opt = {}
+        @yaml = {}
       else
         Log.debug "@pwrake_conf=#{@pwrake_conf}"
         require "yaml"
-        @opt = YAML.load(open(@pwrake_conf))
+        @yaml = YAML.load(open(@pwrake_conf))
       end
 
-      @opt['PWRAKE_CONF'] = @pwrake_conf
+      @opts = {'PWRAKE_CONF' => @pwrake_conf}
 
-      # load option from ENV > pwrake_conf > DEFAULT_OPTIONS
-      DEFAULT_OPTIONS.each do |key,default_opt|
-        @opt[key] = ENV[key] || @opt[key] || default_opt
-      end
-
-      # Pwrake options
-      set_option('LOGFILE','LOG') do |val|
-        if val
-          val = @opt['DEFAULT_LOGFILE'] if val == ""
-          Time.now.strftime(val).sub("%$",Process.pid.to_s)
+      option_data.each do |a|
+        prc = nil
+        keys = []
+        case a
+        when String
+          keys << a
+        when Array
+          a.each do |x|
+            case x
+            when String
+              keys << x
+            when Proc
+              prc = x
+            end
+          end
         end
+        key = keys[0]
+        val = search_opts(keys)
+        val = prc.call(val) if prc
+        @opts[key] = val if !val.nil?
+        instance_variable_set("@"+key.downcase, val)
       end
-      set_option('HOSTFILE','HOSTS')
-      set_option('FILESYSTEM','FS')
-      set_option('SSH_OPTION')
-      set_option('NUM_THREADS') do |val|
-        val && val.to_i
-      end
-      set_option('DISABLE_STEAL')
-      set_option('DISABLE_AFFINITY') do |val|
-        val || ENV['AFFINITY']=='off'
-      end
-      @opt['WORK_DIR'].sub!('%CWD_RELATIVE_TO_HOME',cwd_relative_to_home)
+    end
 
-      # Rake options
-      @opt['TRACE'] = Rake.application.options.trace
-      @opt['VERBOSE'] = true if Rake.verbose
-      @opt['SILENT'] = true if !Rake.verbose
-      @opt['DRY_RUN'] = Rake.application.options.dryrun
-      #@opt['RAKEFILE'] =
-      #@opt['LIBDIR'] =
-      @opt['RAKELIBDIR'] = Rake.application.options.rakelib.join(':')
+    # Option order:
+    #  command_option > ENV > pwrake_conf > DEFAULT_OPTIONS
+    def search_opts(keys)
+      val = Rake.application.options.send(keys[0].downcase.to_sym)
+      return val if !val.nil?
+      #
+      keys.each do |k|
+        val = ENV[k.upcase]
+        return val if !val.nil?
+      end
+      #
+      keys.each do |k|
+        val = @yaml[k.upcase]
+        return val if !val.nil?
+      end
+      nil
     end
 
     def cwd_relative_to_home
@@ -127,7 +153,7 @@ module Pwrake
     end
 
     def init_pass_env
-      if envs = @opt['PASS_ENV']
+      if envs = @opts['PASS_ENV']
         pass_env = {}
 
         case envs
@@ -150,9 +176,9 @@ module Pwrake
         end
 
         if pass_env.empty?
-          @opt.delete('PASS_ENV')
+          @opts.delete('PASS_ENV')
         else
-          @opt['PASS_ENV'] = pass_env
+          @opts['PASS_ENV'] = pass_env
         end
       end
     end
@@ -229,11 +255,17 @@ module Pwrake
 
 
     def set_filesystem
+      @shell_opt = {
+        :work_dir  => @opts['WORK_DIR'],
+        :pass_env  => @opts['PASS_ENV'],
+        :gnu_time  => @opts['GNU_TIME'],
+        :ssh_opt   => @opts['SSH_OPTION']
+      }
 
       if @filesystem.nil?
         case mount_type
         when /gfarm2fs/
-          @opt['FILESYSTEM'] = @filesystem = 'gfarm'
+          @opts['FILESYSTEM'] = @filesystem = 'gfarm'
         end
       end
 
@@ -241,27 +273,20 @@ module Pwrake
       when 'gfarm'
         require "pwrake/locality_aware_queue"
         require "pwrake/gfarm_feature"
-        GfarmPath.subdir = @opt['GFARM_SUBDIR']
+        GfarmPath.subdir = @opts['GFARM_SUBDIR']
         @filesystem  = 'gfarm'
         @shell_class = GfarmShell
-        @shell_opt   = {
+        @shell_opt.merge!({
           :work_dir  => Dir.pwd,
-          :pass_env  => @opt['PASS_ENV'],
-          :ssh_opt   => @opt['SSH_OPTION'],
-          :disable_steal => @opt['DISABLE_STEAL'],
-          :single_mp => @opt['GFARM_SINGLE_MP'],
-          :basedir   => @opt['GFARM_BASEDIR'],
-          :prefix    => @opt['GFARM_PREFIX']
-        }
+          :disable_steal => @opts['DISABLE_STEAL'],
+          :single_mp => @opts['GFARM_SINGLE_MP'],
+          :basedir   => @opts['GFARM_BASEDIR'],
+          :prefix    => @opts['GFARM_PREFIX']
+        })
         @queue_class = GfarmQueue
       else
         @filesystem  = 'nfs'
         @shell_class = Shell
-        @shell_opt   = {
-          :work_dir  => @opt['WORK_DIR'],
-          :pass_env  => @opt['PASS_ENV'],
-          :ssh_opt   => @opt['SSH_OPTION']
-        }
         @queue_class = TaskQueue
       end
     end

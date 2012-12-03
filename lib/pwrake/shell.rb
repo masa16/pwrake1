@@ -1,7 +1,7 @@
 module Pwrake
 
   class Shell
-    CHARS='0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!"#=~{*}?_-^@[],./'
+    CHARS='0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
     TLEN=32
 
     OPEN_LIST={}
@@ -27,11 +27,13 @@ module Pwrake
       @work_dir = @option[:work_dir] || Dir.pwd
       @pass_env = @option[:pass_env]
       @ssh_opt = @option[:ssh_opt]
+      @gnu_time = @option[:gnu_time] # = true
       @terminator = ""
       TLEN.times{ @terminator << CHARS[rand(CHARS.length)] }
     end
 
     attr_reader :id
+    attr_accessor :current_task
 
     def system_cmd(*arg)
       if ['localhost','localhost.localdomain','127.0.0.1'].include? @host
@@ -52,15 +54,15 @@ module Pwrake
       end
       @io = IO.popen( cmd, "r+" )
       OPEN_LIST[__id__] = self
-      system "export PATH='#{path}'"
+      _execute_shell "export PATH='#{path}'"
       if @pass_env
         @pass_env.each do |k,v|
-          system "export #{k}='#{v}'"
+          _execute_shell "export #{k}='#{v}'"
         end
       end
     end
 
-    attr_reader :host, :status
+    attr_reader :host, :status, :profile
 
     def finish
       close
@@ -79,8 +81,7 @@ module Pwrake
     def backquote(*command)
       command = command.join(' ')
       @lock.synchronize do
-        @io.puts(command)
-        _get_output
+        _execute(command,true)
       end
     end
 
@@ -88,16 +89,12 @@ module Pwrake
       command = command.join(' ')
       Log.debug "--- command=#{command.inspect}"
       @lock.synchronize do
-        @io.puts(command)
-        _get
+        _execute(command)
       end
-      #Log.debug "--- command=#{command.inspect} status=#{@status}"
-      @status==0
     end
 
-
     def cd_work_dir
-      system("cd #{@work_dir}")
+      _execute_shell("cd #{@work_dir}")
     end
 
 
@@ -109,6 +106,66 @@ module Pwrake
 
     private
 
+    def _execute_shell(cmd)
+      _execute_main(cmd,false,false)
+    end
+
+    def _execute(cmd,quote=nil)
+      _execute_main(cmd,quote,@gnu_time)
+    end
+
+    def _execute_main(cmd,quote,gnu_time)
+      t = Time.now
+      if gnu_time
+        f = "%x,%e,%S,%U,%M,%t,%K,%D,%p,%X,%Z,%F,%R,%W,%c,%w,%I,%O,%r,%s,%k"
+        if /\*|\?|\{|\}|\[|\]|<|>|\(|\)|\~|\&|\||\\|\$|;|`|\n/ =~ cmd
+          cmd = cmd.gsub(/'/,"'\"'\"'")
+          cmd = "sh -c '#{cmd}'"
+        end
+        @io.puts("/usr/bin/time -o /dev/stdout -f '#{@terminator}:#{f}' #{cmd}")
+      else
+        @io.puts(cmd)
+        @io.puts("\necho '#{@terminator}':$? ")
+      end
+
+      while x = @io.gets
+        x.chomp!
+        if x[0,TLEN] == @terminator
+          # p x
+          @elap_time = Time.now - t
+          stat = x[TLEN+1..-1]
+          break
+        end
+        if quote
+          a << x
+        else
+          LOCK.synchronize do
+            puts x
+          end
+        end
+      end
+
+      if gnu_time
+        puts stat
+        @profile = stat.split(',')
+        @profile.push @elap_time
+        @profile.push cmd
+        #p @profile
+        #p @profile.size
+        @status = Integer(@profile[0])
+      else
+        @status = Integer(stat)
+      end
+
+      if quote
+        a
+      else
+        @status==0
+      end
+    end
+
+
+=begin
     def _get
       @io.puts "\necho '#{@terminator}':$? "
       while x = @io.gets
@@ -137,6 +194,8 @@ module Pwrake
       end
       a
     end
+=end
+
   end
 
 end # module Pwrake

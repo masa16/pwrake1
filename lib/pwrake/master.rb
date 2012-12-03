@@ -18,6 +18,9 @@ module Pwrake
     attr_reader :shell_set
 
     def initialize
+    end
+
+    def init
       init_option   # Pwrake::Option
     end
 
