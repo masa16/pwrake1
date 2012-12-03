@@ -74,4 +74,10 @@ describe Helper do
     its(:result) { should match(/  ENV1: hoge/) }
   end
 
+  context "dir=009 PROFILE w GNU_TIME" do
+    subject { Helper.new("009").run }
+    it { should be_success }
+    its(:n_files) { should eq 3 }
+  end
+
 end
