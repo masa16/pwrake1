@@ -17,6 +17,11 @@ module Pwrake
     @@nice = "nice"
     @@shell = "sh"
     @@current_id = 0
+    @@profiler = Profiler.new
+
+    def self.profiler
+      @@profiler
+    end
 
     def initialize(host,opt={})
       @host = host || 'localhost'
@@ -102,38 +107,24 @@ module Pwrake
       OPEN_LIST.map do |k,v|
         v.close
       end
+      Shell.profiler.close
     }
 
     private
 
     def _execute_shell(cmd)
-      _execute_main(cmd,false,false)
+      @io.puts(cmd)
     end
 
     def _execute(cmd,quote=nil)
-      _execute_main(cmd,quote,@gnu_time)
-    end
+      start_time = Time.now
 
-    def _execute_main(cmd,quote,gnu_time)
-      t = Time.now
-      if gnu_time
-        f = "%x,%e,%S,%U,%M,%t,%K,%D,%p,%X,%Z,%F,%R,%W,%c,%w,%I,%O,%r,%s,%k"
-        if /\*|\?|\{|\}|\[|\]|<|>|\(|\)|\~|\&|\||\\|\$|;|`|\n/ =~ cmd
-          cmd = cmd.gsub(/'/,"'\"'\"'")
-          cmd = "sh -c '#{cmd}'"
-        end
-        @io.puts("/usr/bin/time -o /dev/stdout -f '#{@terminator}:#{f}' #{cmd}")
-      else
-        @io.puts(cmd)
-        @io.puts("\necho '#{@terminator}':$? ")
-      end
+      @io.puts @@profiler.command(cmd,@terminator)
 
       while x = @io.gets
         x.chomp!
         if x[0,TLEN] == @terminator
-          # p x
-          @elap_time = Time.now - t
-          stat = x[TLEN+1..-1]
+          status = x[TLEN+1..-1]
           break
         end
         if quote
@@ -145,56 +136,15 @@ module Pwrake
         end
       end
 
-      if gnu_time
-        puts stat
-        @profile = stat.split(',')
-        @profile.push @elap_time
-        @profile.push cmd
-        #p @profile
-        #p @profile.size
-        @status = Integer(@profile[0])
-      else
-        @status = Integer(stat)
-      end
-
+      end_time = Time.now
+      @status = @@profiler.profile(@current_task, cmd,
+                                   start_time, end_time, status)
       if quote
         a
       else
         @status==0
       end
     end
-
-
-=begin
-    def _get
-      @io.puts "\necho '#{@terminator}':$? "
-      while x = @io.gets
-        x.chomp!
-        if x[0,TLEN] == @terminator
-          @status = Integer(x[TLEN+1..-1])
-          break
-        end
-        LOCK.synchronize do
-          puts x
-        end
-      end
-      @status==0
-    end
-
-    def _get_output
-      @io.puts "\necho '#{@terminator}':$? "
-      a = ''
-      while x = @io.gets
-        x.chomp!
-        if x[0,TLEN] == @terminator
-          @status = Integer(x[TLEN+1..-1])
-          break
-        end
-        a << x
-      end
-      a
-    end
-=end
 
   end
 

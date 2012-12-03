@@ -23,6 +23,7 @@ module Pwrake
        'GNU_TIME',
        'HALT_QUEUE_WHILE_SEARCH',
        'SHOW_CONF',
+       'PROFILE',
 
        ['HOSTFILE','HOSTS'],
        ['LOGFILE','LOG',
@@ -255,10 +256,13 @@ module Pwrake
 
 
     def set_filesystem
+      if fn = @opts["PROFILE"]
+        Shell.profiler.open(fn,@opts['GNU_TIME'])
+      end
+
       @shell_opt = {
         :work_dir  => @opts['WORK_DIR'],
         :pass_env  => @opts['PASS_ENV'],
-        :gnu_time  => @opts['GNU_TIME'],
         :ssh_opt   => @opts['SSH_OPTION']
       }
 
