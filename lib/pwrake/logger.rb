@@ -21,6 +21,7 @@ module Pwrake
       @level = WARN
       @out = nil
       @filename = nil
+      @lock = Mutex.new
     end
 
     def open(file)
@@ -53,11 +54,13 @@ module Pwrake
     def add(severity, message)
       if !severity || severity >= @level
         if @out
-          LOCK.synchronize do
+          @lock.synchronize do
             @out.write(message+"\n")
           end
         else
-          $stderr.write(message+"\n")
+          LOCK.synchronize do
+            $stderr.write(message+"\n")
+          end
         end
       end
       true
@@ -86,8 +89,10 @@ module Pwrake
 
     def close
       finish "LogEnd", @start_time
-      @out.close if @filename
-      @out=nil
+      @lock.synchronize do
+        @out.close if @filename
+        @out=nil
+      end
       @filename=nil
     end
 
