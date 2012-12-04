@@ -3,6 +3,7 @@ module Pwrake
   module Option
 
     DEFAULT_CONFFILES = ["pwrake_conf.yaml","PwrakeConf.yaml"]
+    START_TIME = Time.now
 
     def option_data
       [
@@ -28,10 +29,12 @@ module Pwrake
        ['LOGFILE','LOG',
         proc{|v|
           if v
+            # turn trace option on
+            Rake.application.options.trace = true
             if v == "" || !v.kind_of?(String)
               v = "Pwrake%Y%m%d-%H%M%S_%$.log"
             end
-            Time.now.strftime(v).sub("%$",Process.pid.to_s)
+            START_TIME.strftime(v).sub("%$",Process.pid.to_s)
           end
         }],
        ['PROFILE',
@@ -40,7 +43,7 @@ module Pwrake
             if v == "" || !v.kind_of?(String)
               v = "Pwrake%Y%m%d-%H%M%S_%$.csv"
             end
-            Time.now.strftime(v).sub("%$",Process.pid.to_s)
+            START_TIME.strftime(v).sub("%$",Process.pid.to_s)
           end
         }],
        ['NUM_THREADS', proc{|v| v && v.to_i}],
@@ -100,7 +103,7 @@ module Pwrake
       else
         Log.debug "@pwrake_conf=#{@pwrake_conf}"
         require "yaml"
-        @yaml = YAML.load(open(@pwrake_conf))
+        @yaml = open(@pwrake_conf){|f| YAML.load(f) }
       end
 
       @opts = {'PWRAKE_CONF' => @pwrake_conf}
@@ -127,6 +130,29 @@ module Pwrake
         @opts[key] = val if !val.nil?
         instance_variable_set("@"+key.downcase, val)
       end
+
+      feedback_options [
+       'DRYRUN',
+       'IGNORE_SYSTEM',
+       'IGNORE_DEPRECATE',
+       'LOAD_SYSTEM',
+       'NOSEARCH',
+       'RAKELIB',
+       'SHOW_PREREQS',
+       'SILENT',
+       'TRACE',
+       'TRACE_RULES']
+      Rake.verbose(true) if Rake.application.options.trace
+      Rake.verbose(false) if Rake.application.options.silent
+    end
+
+    def feedback_options(a)
+      a.each do |k|
+        if v=@opts[k]
+          m = (k.downcase+"=").to_sym
+          Rake.application.options.send(m,v)
+        end
+      end
     end
 
     # Option order:
@@ -140,6 +166,7 @@ module Pwrake
         return val if !val.nil?
       end
       #
+      return nil if !@yaml
       keys.each do |k|
         val = @yaml[k.upcase]
         return val if !val.nil?
