@@ -151,26 +151,26 @@ module Pwrake
     def start
       Log.debug "--- mountpoint=#{@remote_mountpoint}"
       open(system_cmd)
-      system "cd"
-      if not system "test -d #{@remote_mountpoint}"
-        system "mkdir -p #{@remote_mountpoint}"
+      cd
+      if not _system "test -d #{@remote_mountpoint}"
+        _system "mkdir -p #{@remote_mountpoint}"
         subdir = GfarmPath.subdir
         if ["/","",nil].include?(subdir)
-          system "gfarm2fs #{@remote_mountpoint}"
+          _system "gfarm2fs #{@remote_mountpoint}"
         else
-          system "gfarm2fs -o modules=subdir,subdir=#{subdir} #{@remote_mountpoint}"
+          _system "gfarm2fs -o modules=subdir,subdir=#{subdir} #{@remote_mountpoint}"
         end
       end
       path = ENV['PATH'].gsub( /#{GfarmPath.mountpoint}/, @remote_mountpoint )
-      system "export PATH=#{path}"
+      _system "export PATH=#{path}"
       cd_work_dir
     end
 
     def close
       if @remote_mountpoint
-        system "cd"
-        system "fusermount -u #{@remote_mountpoint}"
-        system "rmdir #{@remote_mountpoint}"
+        cd
+        _system "fusermount -u #{@remote_mountpoint}"
+        _system "rmdir #{@remote_mountpoint}"
       end
       super
       self
@@ -179,7 +179,7 @@ module Pwrake
     def cd_work_dir
       # modify local work_dir -> remote work_dir
       dir = Pathname.new(@remote_mountpoint) + GfarmPath.pwd
-      system "cd #{dir}"
+      cd dir
     end
 
   end
