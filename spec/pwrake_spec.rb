@@ -49,14 +49,14 @@ describe Helper do
 
   if File.exist?($hosts)
     context "dir=005 --hostfile" do
-      subject { Helper.new("005","-F ../hosts").run }
+      subject { Helper.new("005","-q -F ../hosts").run }
       it { should be_success }
       its("output_lines.sort") { should eq Helper.read_hosts($hosts,true).sort }
     end
   end
 
   context "dir=006 PASS_ENV" do
-    subject { Helper.new("006","-F ../hosts ENV1=pass_successfully").run }
+    subject { Helper.new("006","-q -F ../hosts ENV1=pass_successfully").run }
     it { should be_success }
     its(:result) { should eq "pass_successfully\n" }
   end
@@ -75,7 +75,7 @@ describe Helper do
   end
 
   context "dir=009 PROFILE w GNU_TIME" do
-    subject { Helper.new("009").run }
+    subject { Helper.new("009").clean.run }
     it { should be_success }
     its(:n_files) { should eq 3 }
   end

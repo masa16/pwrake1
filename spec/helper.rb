@@ -1,7 +1,7 @@
 class Helper
 
   @@spec_dir = File.absolute_path(File.dirname(__FILE__))+"/"
-  @@pwrake = @@spec_dir+'../bin/pwrake -q --pwrake-conf=../pwrake_conf.yaml'
+  @@pwrake = @@spec_dir+'../bin/pwrake'
 
   @@show_command = false
   @@show_result = false
@@ -39,8 +39,6 @@ class Helper
       puts "-- cmd: #{cmd}"
     end
     Dir.chdir(@dir) do
-      #system "rm -f *.dat"
-      #`rake clean`
       tm = Time.now
       @result = `#{cmd}`
       @status = $?

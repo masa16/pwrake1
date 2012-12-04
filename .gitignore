@@ -26,3 +26,5 @@ tmp
 */.#*
 */*/.#*
 rhosts
+spec/*/*.dat
+spec/*/*.csv
