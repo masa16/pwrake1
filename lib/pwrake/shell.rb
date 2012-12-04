@@ -32,7 +32,6 @@ module Pwrake
       @work_dir = @option[:work_dir] || Dir.pwd
       @pass_env = @option[:pass_env]
       @ssh_opt = @option[:ssh_opt]
-      @gnu_time = @option[:gnu_time] # = true
       @terminator = ""
       TLEN.times{ @terminator << CHARS[rand(CHARS.length)] }
     end
@@ -59,10 +58,10 @@ module Pwrake
       end
       @io = IO.popen( cmd, "r+" )
       OPEN_LIST[__id__] = self
-      _execute_shell "export PATH='#{path}'"
+      _system "export PATH='#{path}'"
       if @pass_env
         @pass_env.each do |k,v|
-          _execute_shell "export #{k}='#{v}'"
+          _system "export #{k}='#{v}'"
         end
       end
     end
@@ -86,7 +85,9 @@ module Pwrake
     def backquote(*command)
       command = command.join(' ')
       @lock.synchronize do
-        _execute(command,true)
+        a = []
+        _execute(command){|x| a << x}
+        a.join("\n")
       end
     end
 
@@ -94,12 +95,16 @@ module Pwrake
       command = command.join(' ')
       Log.debug "--- command=#{command.inspect}"
       @lock.synchronize do
-        _execute(command)
+        _execute(command){|x| LOCK.synchronize{puts x}}
       end
     end
 
     def cd_work_dir
-      _execute_shell("cd #{@work_dir}")
+      _system("cd #{@work_dir}")
+    end
+
+    def cd(dir="")
+      _system("cd #{dir}")
     end
 
 
@@ -112,40 +117,35 @@ module Pwrake
 
     private
 
-    def _execute_shell(cmd)
-      @io.puts(cmd)
+    def _system(cmd)
+      raise "@io is closed" if @io.closed?
+      @lock.synchronize do
+        @io.puts(cmd+"\necho '#{@terminator}':$? ")
+        status = io_read_loop{}
+        Integer(status) == 0
+      end
     end
 
-    def _execute(cmd,quote=nil)
+    def _execute(cmd,quote=nil,&block)
+      raise "@io is closed" if @io.closed?
       start_time = Time.now
-
       @io.puts @@profiler.command(cmd,@terminator)
-
-      while x = @io.gets
-        x.chomp!
-        if x[0,TLEN] == @terminator
-          status = x[TLEN+1..-1]
-          break
-        end
-        if quote
-          a << x
-        else
-          LOCK.synchronize do
-            puts x
-          end
-        end
-      end
-
+      status = io_read_loop(&block)
       end_time = Time.now
       @status = @@profiler.profile(@current_task, cmd,
                                    start_time, end_time, status)
-      if quote
-        a
-      else
-        @status==0
-      end
+      @status == 0
     end
 
+    def io_read_loop
+      while x = @io.gets
+        x.chomp!
+        if x[0,TLEN] == @terminator
+          return x[TLEN+1..-1]
+        end
+        yield x
+      end
+    end
   end
 
 end # module Pwrake
