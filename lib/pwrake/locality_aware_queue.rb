@@ -78,9 +78,10 @@ module Pwrake
       @q2 = {}
       @hosts.each{|h| @q2[h]=[]}
       @q2[nil] = []
-      @thread = Thread.new{thread_loop}
       @timeout = 2
       @enable_steal = !opt['disable_steal']
+
+      @thread = Thread.new{thread_loop}
     end
 
     attr_reader :size
