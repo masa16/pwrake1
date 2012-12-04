@@ -85,8 +85,10 @@ module Pwrake
       @unfinished_prereq.delete(preq_name)
       if @unfinished_prereq.empty?
         if @waiting_thread
+          Log.debug "--- @waiting_thread.wakeup name=#{self.name} "
           @waiting_thread.wakeup
         else
+          Log.debug "--- check_and_enq enq name=#{self.name} "
           application.task_queue.enq(self)
         end
       end

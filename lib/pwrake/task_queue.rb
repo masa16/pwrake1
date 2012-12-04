@@ -35,7 +35,7 @@ module Pwrake
     end
 
     def enq(item,hint=nil)
-      Log.debug "--- #{self.class}#enq #{item.inspect}"
+      # Log.debug "--- #{self.class}#enq #{item.inspect}"
       th = nil
       if @halt
         if th = @reservation[item]
@@ -65,7 +65,7 @@ module Pwrake
 
 
     def deq(hint=nil)
-      Log.debug "--- #{self.class}#deq @halt=#{@halt.inspect} @q=#{@q.inspect} @reserved_q=#{@reserved_q.inspect} Thread.current=#{Thread.current}"
+      # Log.debug "--- #{self.class}#deq #{self.inspect}"
       n = 0
       loop do
         @mutex.synchronize do
@@ -87,8 +87,8 @@ module Pwrake
               @cv.signal
               return false
             end
+            Log.debug "--- waiting in #{self.class}#deq @finished=#{@finished.inspect}"
             @cv.wait(@mutex)
-            Log.debug "--- waited in #{self.class}#deq @finished=#{@finished.inspect}"
 
           else
             if t = deq_impl(hint,n)
