@@ -76,6 +76,7 @@ module Pwrake
           elsif @halt
             Log.debug "--- halt in #{self.class}#deq @q=#{@q.inspect}"
             @cv.wait(@mutex)
+            n = 0
 
           elsif item = @reserved_q.delete(Thread.current)
             Log.debug "--- deq from reserved_q=#{item.inspect}"
@@ -89,6 +90,7 @@ module Pwrake
             end
             Log.debug "--- waiting in #{self.class}#deq @finished=#{@finished.inspect}"
             @cv.wait(@mutex)
+            n = 0
 
           else
             if t = deq_impl(hint,n)
