@@ -1,9 +1,10 @@
 module Pwrake
 
+  START_TIME = Time.now
+
   module Option
 
     DEFAULT_CONFFILES = ["pwrake_conf.yaml","PwrakeConf.yaml"]
-    START_TIME = Time.now
 
     def option_data
       [
@@ -325,6 +326,7 @@ module Pwrake
           :prefix    => @opts['GFARM_PREFIX']
         })
         @queue_class = GfarmQueue
+        # @queue_class = TaskQueue
       else
         @filesystem  = 'nfs'
         @shell_class = Shell
