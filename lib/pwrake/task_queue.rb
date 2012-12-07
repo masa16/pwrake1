@@ -34,7 +34,36 @@ module Pwrake
       end
     end
 
+    def enq_synchronize
+      if @halt
+        yield
+      else
+        @mutex.synchronize do
+          yield
+          enq_finish
+        end
+        @cv.broadcast
+      end
+      @reserved_q.keys.each do |th|
+        Log.debug "--- run #{th}";
+        th.run
+      end
+    end
+
+    def enq_finish
+    end
+
+
     def enq(item,hint=nil)
+      if th = @reservation[item]
+        @reserved_q[th] = item
+      else
+        enq_impl(item,hint)
+      end
+    end
+
+
+    def enq_bak(item,hint=nil)
       # Log.debug "--- #{self.class}#enq #{item.inspect}"
       th = nil
       if @halt
