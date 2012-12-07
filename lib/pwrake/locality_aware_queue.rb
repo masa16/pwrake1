@@ -79,49 +79,70 @@ module Pwrake
       @q2[nil] = []
       @enable_steal = !opt['disable_steal']
       @time_prev = Time.now
+
+      @thread = Thread.new{thread_loop}
     end
 
     attr_reader :size
 
 
-    def time_out
-      if @size == 0
-        if @q1.size == 1
-          0.1
-        else
-          0.2
-        end
-      else
-        1.0
+    def thread_loop
+      while !@finished
+        bulk_mvq
+        sleep # time_out
       end
     end
 
+
+    def time_out
+      if @size == 0
+        if @q1.size == 1
+          0.25
+        else
+          0.5
+        end
+      else
+        if @q1.size > @size
+          0.5
+        elsif @q1.size > @size/2
+          1.0
+        else
+          3.0
+        end
+      end
+    end
+
+
+    def bulk_mvq
+      a = nil
+      @mutex.synchronize do
+        return if @q1.empty?
+
+        time_now = Time.now
+        interval = time_now-@time_prev
+        return if time_now-@time_prev < time_out
+
+        log_bulk_mvq
+        @time_prev = time_now
+
+        a = @q1
+        @q1 = []
+      end
+
+      where(a)
+
+      @mutex.synchronize do
+        while t = a.shift
+          mvq(t)
+        end
+        @cv.broadcast
+      end
+    end
 
     def log_bulk_mvq
       msg = @q1[0..2].map{|t| t.name}.inspect
       msg.sub!(/]$/,",...") if @q1.size > 3
-      Log.info "-- bulk_mvq @q1.size=#{@q1.size} @q1=#{msg} @size=#{@size} timespan=#{Time.now-@time_prev}"
-    end
-
-    def bulk_mvq
-      #Log.debug "--- #{self.class}#bulk_mvq nq=#{nq} @q1=#{@q1.inspect}"
-      return if @q1.empty?
-
-      time_now = Time.now
-      return if time_now-@time_prev < time_out
-      log_bulk_mvq
-      @time_prev = time_now
-
-      a = @q1
-      @q1 = []
-
-      where(a)
-
-      while t = a.shift
-        mvq(t)
-      end
-
-      @cv.broadcast
+      Log.info "-- bulk_mvq interval=%.6fs @size=#{@size} @q1.size=#{@q1.size} @q1=#{msg}"%(Time.now-@time_prev)
     end
 
 
@@ -152,11 +173,14 @@ module Pwrake
     def enq_impl(item,hint=nil)
       #Log.debug "--- #{self.class}#enq_impl #{item.inspect}"
       @q1.push(item)
-      bulk_mvq
+    end
+
+    def enq_finish
+      @thread.run if @thread.alive?
     end
 
     def deq_impl(host,n)
-      bulk_mvq
+      @thread.run if @thread.alive?
 
       if t = deq_locate(host)
         Log.info "-- deq_locate n=#{n} task=#{t.name} host=#{host}"
@@ -170,7 +194,7 @@ module Pwrake
         end
       end
 
-      m = [0.05*(n+1), 2].min
+      m = 0.05*(2**([n,5].min))
       @cv.wait(@mutex,m)
       nil
     end
@@ -223,7 +247,7 @@ module Pwrake
 
     def finish
       super
-      # @thread.run if @thread.alive?
+      @thread.run if @thread.alive?
     end
 
   end
