@@ -187,12 +187,20 @@ module Pwrake
 
   class GfarmQueue < LocalityAwareQueue
 
+    def abr_msg(a)
+      m = a[0..5].map{|x| x}.inspect
+      m.sub!(/]$/,",...") if a.size > 6
+      "size=#{a.size} #{m}"
+    end
+
     def where(tasks)
       if Pwrake.application.options.dryrun ||
           Pwrake.application.options.disable_affinity
         return tasks
       end
-      Log.debug "--- GfarmQueue#where #{tasks.inspect}"
+
+      start_time = Time.now
+      #Log.debug "--- GfarmQueue#where #{tasks.inspect}"
       #if Pwrake.manager.gfarm and Pwrake.manager.affinity
       gfwhere_result = {}
       filenames = []
@@ -203,7 +211,7 @@ module Pwrake
           filenames << name
         end
       end
-      # Log.debug "-------- GfarmQueue#where #{filenames.inspect}"
+
       if !filenames.empty?
         gfwhere_result = GfarmPath.gfwhere(filenames)
         tasks.each do |t|
@@ -212,6 +220,7 @@ module Pwrake
           end
         end
       end
+      Log.info "-- GfarmQueue#where %.6fs %s" % [Time.now-start_time,abr_msg(filenames)]
       tasks
     end
 
