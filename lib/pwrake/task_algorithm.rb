@@ -16,10 +16,16 @@ module Pwrake
 
     def invoke_modify(*args)
       task_args = TaskArguments.new(arg_names, args)
-      flag = application.pwrake_options['HALT_QUEUE_WHILE_SEARCH']
-      application.task_queue.halt if flag
-      search_with_call_chain(self, task_args, InvocationChain::EMPTY)
-      application.task_queue.resume if flag
+      # flag = application.pwrake_options['HALT_QUEUE_WHILE_SEARCH']
+      # application.task_queue.halt if flag
+      # search_with_call_chain(self, task_args, InvocationChain::EMPTY)
+      # application.task_queue.resume if flag
+
+      start_time = Time.now
+      application.task_queue.enq_synchronize do
+        search_with_call_chain(self, task_args, InvocationChain::EMPTY)
+      end
+      Log.info "-- search_tasks %.6fs" % (Time.now-start_time)
 
       if conn = Pwrake.current_shell
         @waiting_thread = nil
@@ -45,7 +51,9 @@ module Pwrake
         @already_invoked = true
       end
       pw_execute(@arg_data) if needed?
+      start_time = Time.now
       pw_enq_subsequents
+      Log.info "-- pw_enq_subsequents(%s) %.6fs"%[self.name,Time.now-start_time]
       shell.current_task = nil if shell
     end
 
@@ -74,10 +82,12 @@ module Pwrake
     def pw_enq_subsequents
       @lock.synchronize do
         my_name = self.name
-        @subsequents.each do |t|        # <<--- competition !!!
-          t && t.check_and_enq(my_name)
+        application.task_queue.enq_synchronize do
+          @subsequents.each do |t|        # <<--- competition !!!
+            t && t.check_and_enq(my_name)
+          end
+          @already_finished = true        # <<--- competition !!!
         end
-        @already_finished = true        # <<--- competition !!!
       end
     end
 
