@@ -1,4 +1,4 @@
-$spec_dir = File.absolute_path(File.dirname(__FILE__))
+$spec_dir = File.expand_path(File.dirname(__FILE__))
 require $spec_dir+"/helper"
 $hosts = $spec_dir+"/hosts"
 

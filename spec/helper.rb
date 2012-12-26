@@ -1,6 +1,6 @@
 class Helper
 
-  @@spec_dir = File.absolute_path(File.dirname(__FILE__))+"/"
+  @@spec_dir = File.expand_path(File.dirname(__FILE__))+"/"
   @@pwrake = @@spec_dir+'../bin/pwrake'
 
   @@show_command = false

@@ -29,7 +29,7 @@ end
 
 require 'rake'
 
-libpath = File.absolute_path(File.dirname(__FILE__))+"/../lib"
+libpath = File.expand_path(File.dirname(__FILE__))+"/../lib"
 $LOAD_PATH.unshift libpath
 require "pwrake"
 
