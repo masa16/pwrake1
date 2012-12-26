@@ -16,13 +16,13 @@ module Pwrake
 
     def invoke_modify(*args)
       task_args = TaskArguments.new(arg_names, args)
-      # flag = application.pwrake_options['HALT_QUEUE_WHILE_SEARCH']
-      # application.task_queue.halt if flag
-      # search_with_call_chain(self, task_args, InvocationChain::EMPTY)
-      # application.task_queue.resume if flag
-
+      flag = application.pwrake_options['HALT_QUEUE_WHILE_SEARCH']
       start_time = Time.now
-      application.task_queue.enq_synchronize do
+      if flag
+        application.task_queue.enq_synchronize do
+          search_with_call_chain(self, task_args, InvocationChain::EMPTY)
+        end
+      else
         search_with_call_chain(self, task_args, InvocationChain::EMPTY)
       end
       Log.info "-- search_tasks %.6fs" % (Time.now-start_time)
