@@ -50,7 +50,7 @@ module Pwrake
     def start_threads
       Thread.abort_on_exception = true
       @threads = []
-      @shell_set.each_with_index do |c|
+      @shell_set.each do |c|
         @threads << Thread.new(c) do |conn|
           Pwrake.current_shell = conn
           conn.start
