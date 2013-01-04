@@ -36,10 +36,10 @@ module Pwrake
 
     def enq_synchronize
       if @halt
-        yield
+        ret = yield
       else
         @mutex.synchronize do
-          yield
+          ret = yield
           enq_finish
         end
         @cv.broadcast
@@ -48,6 +48,7 @@ module Pwrake
         Log.debug "--- run #{th}";
         th.run
       end
+      ret
     end
 
     def enq_finish
