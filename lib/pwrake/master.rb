@@ -18,18 +18,13 @@ module Pwrake
     attr_reader :shell_set
 
     def initialize
-    end
-
-    def init
-      init_option   # Pwrake::Option
-    end
-
-    def setup
+      init_option    # Pwrake::Option
       setup_option   # Pwrake::Option
+      @started = false
     end
 
     def start
-      @counter = Counter.new
+      return if @task_queue
       @task_queue = @queue_class.new(@core_list)
       @task_queue.enable_steal = !Rake.application.options.disable_steal
       @shell_set = []
@@ -42,8 +37,8 @@ module Pwrake
     def finish
       Log.debug "-- Master#finish called"
       @task_queue.finish if @task_queue
-      @threads.each{|t| t.join }
-      @counter.print
+      @threads.each{|t| t.join } if @threads
+      @counter.print if @counter
       finish_option   # Pwrake::Option
     end
 

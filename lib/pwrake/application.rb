@@ -29,16 +29,21 @@ module Pwrake
       @master.pwrake_options
     end
 
+    def start_worker
+      @master.start
+    end
 
     # Run the Pwrake application.
     def run
       standard_exception_handling do
-        @master = Master.new
         init("pwrake")
-        @master.init
+        @master = Master.new
         load_rakefile
-        @master.setup
-        top_level
+        begin
+          top_level
+        ensure
+          @master.finish
+        end
       end
     end
 
@@ -50,12 +55,7 @@ module Pwrake
         elsif options.show_prereqs
           display_prerequisites
         else
-          begin
-            @master.start
-            top_level_tasks.each { |task_name| invoke_task(task_name) }
-          ensure
-            @master.finish
-          end
+          top_level_tasks.each { |task_name| invoke_task(task_name) }
         end
       end
     end

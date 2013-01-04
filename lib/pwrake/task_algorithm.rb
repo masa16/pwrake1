@@ -15,6 +15,7 @@ module Pwrake
 
 
     def invoke_modify(*args)
+      application.start_worker
       task_args = TaskArguments.new(arg_names, args)
       flag = application.pwrake_options['HALT_QUEUE_WHILE_SEARCH']
       start_time = Time.now
@@ -26,6 +27,7 @@ module Pwrake
         search_with_call_chain(self, task_args, InvocationChain::EMPTY)
       end
       Log.info "-- search_tasks %.6fs" % (Time.now-start_time)
+      return if @already_invoked
 
       if conn = Pwrake.current_shell
         @waiting_thread = nil
