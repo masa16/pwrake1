@@ -80,4 +80,9 @@ describe Helper do
     its(:n_files) { should eq 3 }
   end
 
+  context "dir=010 invoke in Rakefile" do
+    subject { Helper.new("010").run }
+    it { should be_success }
+  end
+
 end
