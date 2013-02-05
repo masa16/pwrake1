@@ -52,7 +52,7 @@ module Pwrake
        ['GFARM_BASEDIR', proc{|v| v || '/tmp'}],
        ['GFARM_PREFIX', proc{|v| v || "pwrake_#{ENV['USER']}"}],
        ['GFARM_SUBDIR', proc{|v| v || '/'}],
-       ['MASTER_HOSTNAME', proc{|v| v || `hostname -f`.chomp}],
+       #['MASTER_HOSTNAME', proc{|v| v || `hostname -f`.chomp}],
        ['WORK_DIR',proc{|v|
           v ||= '$HOME/%CWD_RELATIVE_TO_HOME'
           v.sub('%CWD_RELATIVE_TO_HOME',cwd_relative_to_home)
