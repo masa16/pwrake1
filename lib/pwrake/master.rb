@@ -15,7 +15,9 @@ module Pwrake
     include Pwrake::Option
 
     attr_reader :task_queue
+    attr_reader :finish_queue
     attr_reader :shell_set
+    attr_reader :filesystem
 
     def initialize
       init_option    # Pwrake::Option
@@ -25,6 +27,7 @@ module Pwrake
 
     def start
       return if @task_queue
+      @finish_queue = Queue.new
       @task_queue = @queue_class.new(@core_list)
       @task_queue.enable_steal = !Rake.application.options.disable_steal
       @shell_set = []

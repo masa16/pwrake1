@@ -72,89 +72,20 @@ module Pwrake
       @hosts = hosts
       @throughput = Throughput.new
       @size = 0
-      @q = nil
-      @q1 = []
       @q2 = {}
       @hosts.each{|h| @q2[h]=[]}
       @q2[nil] = []
       @enable_steal = !opt['disable_steal']
       @time_prev = Time.now
-
-      @thread = Thread.new{thread_loop}
     end
 
     attr_reader :size
 
 
-    def thread_loop
-      while !@finished
-        bulk_mvq
-        sleep # time_out
-      end
-    end
-
-
-    def time_out
-      if @size == 0
-        if @q1.size == 1
-          0.25
-        else
-          0.5
-        end
-      else
-        if @q1.size > @size
-          0.5
-        elsif @q1.size > @size/2
-          1.0
-        else
-          3.0
-        end
-      end
-    end
-
-
-    def bulk_mvq
-      a = nil
-      @mutex.synchronize do
-        return if @q1.empty?
-
-        time_now = Time.now
-        interval = time_now-@time_prev
-        return if time_now-@time_prev < time_out
-
-        log_bulk_mvq
-        @time_prev = time_now
-
-        a = @q1
-        @q1 = []
-      end
-
-      where(a)
-
-      @mutex.synchronize do
-        while t = a.shift
-          mvq(t)
-        end
-        @cv.broadcast
-      end
-    end
-
-    def log_bulk_mvq
-      msg = @q1[0..2].map{|t| t.name}.inspect
-      msg.sub!(/]$/,",...") if @q1.size > 3
-      Log.info "-- bulk_mvq interval=%.6fs @size=#{@size} @q1.size=#{@q1.size} @q1=#{msg}"%(Time.now-@time_prev)
-    end
-
-
-    def where(task_list)
-      # implemented in child class
-    end
-
-
     def mvq(t)
       stored = false
-      if t.respond_to? :location
-        t.location.each do |h|
+      if location = t.suggest_location
+        location.each do |h|
           if q = @q2[h]
             t.assigned.push(h)
             q.push(t)
@@ -163,25 +94,23 @@ module Pwrake
         end
       end
       if !stored
-        @q2[@hosts[rand(@hosts.size)]].push(t)
-        # @q2[nil].push(t)
+        # h = @hosts[rand(@hosts.size)]
+        # @q2[h].push(t)
+        # t.assigned.push(h)
+        @q2[nil].push(t)
       end
       @size += 1
     end
 
 
     def enq_impl(item,hint=nil)
-      #Log.debug "--- #{self.class}#enq_impl #{item.inspect}"
-      @q1.push(item)
+      mvq(item)
     end
 
     def enq_finish
-      @thread.run if @thread.alive?
     end
 
     def deq_impl(host,n)
-      @thread.run if @thread.alive?
-
       if t = deq_locate(host)
         Log.info "-- deq_locate n=#{n} task=#{t.name} host=#{host}"
         return t
@@ -233,21 +162,19 @@ module Pwrake
     end
 
     def size
-      @q1.size + @size
+      @size
     end
 
     def clear
-      @q1.clear
-      @hosts.each{|h| @q2[h].clear}
+      @q2.each{|h,q| q.clear}
     end
 
     def empty?
-      @q1.empty? && @hosts.all?{|h| @q2[h].empty?}
+      @q2.keys.all?{|h| @q2[h].empty?}
     end
 
     def finish
       super
-      @thread.run if @thread.alive?
     end
 
   end

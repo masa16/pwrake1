@@ -17,8 +17,16 @@ module Pwrake
 
   class Application < ::Rake::Application
 
+    def filesystem
+      @master.filesystem
+    end
+
     def task_queue
       @master.task_queue
+    end
+
+    def finish_queue
+      @master.finish_queue
     end
 
     def thread_loop(*args)

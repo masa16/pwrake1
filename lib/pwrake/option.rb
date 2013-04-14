@@ -325,8 +325,7 @@ module Pwrake
           :basedir   => @opts['GFARM_BASEDIR'],
           :prefix    => @opts['GFARM_PREFIX']
         })
-        @queue_class = GfarmQueue
-        # @queue_class = TaskQueue
+        @queue_class = LocalityAwareQueue
       else
         @filesystem  = 'nfs'
         @shell_class = Shell

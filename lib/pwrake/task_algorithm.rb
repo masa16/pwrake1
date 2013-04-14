@@ -17,9 +17,8 @@ module Pwrake
     def invoke_modify(*args)
       application.start_worker
       task_args = TaskArguments.new(arg_names, args)
-      flag = application.pwrake_options['HALT_QUEUE_WHILE_SEARCH']
       start_time = Time.now
-      if flag
+      if application.pwrake_options['HALT_QUEUE_WHILE_SEARCH']
         application.task_queue.enq_synchronize do
           search_with_call_chain(self, task_args, InvocationChain::EMPTY)
         end
@@ -30,21 +29,30 @@ module Pwrake
       return if @already_invoked
 
       if conn = Pwrake.current_shell
-        @waiting_thread = nil
         application.thread_loop(conn,self)
       else
-        @waiting_thread = Thread.current
-        Log.debug "--- sleep in invoke_modify #{self.name} #{@waiting_thread.inspect}"
-        sleep
-        Log.debug "--- awake in invoke_modify"
-        pw_invoke
+	loop do
+	  finished_task = application.finish_queue.deq
+	  finished_task.after_check
+	  break if finished_task==self
+	  finished_task.pw_enq_subsequents
+	end
       end
     end
 
+    def after_check
+      case application.filesystem
+      when "gfarm"
+        if kind_of? Rake::FileTask
+          gfwhere_result = GfarmPath.gfwhere([self.name])
+          self.location = loc = gfwhere_result[GfarmPath.local_to_fs(self.name)]
+          #puts "'#{self.name}' exist? => #{File.exist?(self.name)} loc => #{loc}"
+        end
+      end
+    end
 
     def pw_invoke
-      shell = Pwrake.current_shell
-      if shell
+      if shell = Pwrake.current_shell
         shell.current_task = self
         log_host(shell.host)
       end
@@ -53,9 +61,7 @@ module Pwrake
         @already_invoked = true
       end
       pw_execute(@arg_data) if needed?
-      start_time = Time.now
-      pw_enq_subsequents
-      Log.info "-- pw_enq_subsequents(%s) %.6fs"%[self.name,Time.now-start_time]
+      application.finish_queue.enq(self)
       shell.current_task = nil if shell
     end
 
@@ -83,10 +89,9 @@ module Pwrake
 
     def pw_enq_subsequents
       @lock.synchronize do
-        my_name = self.name
         application.task_queue.enq_synchronize do
           @subsequents.each do |t|        # <<--- competition !!!
-            t && t.check_and_enq(my_name)
+            t && t.check_and_enq(self.name)
           end
           @already_finished = true        # <<--- competition !!!
         end
@@ -96,13 +101,8 @@ module Pwrake
     def check_and_enq(preq_name=nil)
       @unfinished_prereq.delete(preq_name)
       if @unfinished_prereq.empty?
-        if @waiting_thread
-          Log.debug "--- @waiting_thread.wakeup name=#{self.name} "
-          @waiting_thread.wakeup
-        else
-          Log.debug "--- check_and_enq enq name=#{self.name} "
-          application.task_queue.enq(self)
-        end
+	Log.debug "--- check_and_enq enq name=#{self.name} "
+	application.task_queue.enq(self)
       end
     end
 
@@ -154,17 +154,22 @@ module Pwrake
     private :format_search_flags
 
 
+    def suggest_location
+      if kind_of?(Rake::FileTask) && preq_name = @prerequisites[0]
+        application[preq_name].location
+      end
+    end
+
     def log_host(exec_host)
       # exec_host = Pwrake.current_shell.host
-      prereq_name = @prerequisites[0]
-      if kind_of?(Rake::FileTask) and prereq_name
-        Pwrake.application.count( @location, exec_host )
-        if @location and @location.include? exec_host
+      if loc = suggest_location()
+        Pwrake.application.count( loc, exec_host )
+        if loc.include? exec_host
           compare = "=="
         else
           compare = "!="
         end
-        Log.info "-- access to #{prereq_name}: file_host=#{@location.inspect} #{compare} exec_host=#{exec_host}"
+        Log.info "-- access to #{@prerequisites[0]}: file_host=#{loc.inspect} #{compare} exec_host=#{exec_host}"
       end
     end
 
