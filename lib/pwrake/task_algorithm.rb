@@ -13,7 +13,6 @@ module Pwrake
       @location = a
     end
 
-
     def invoke_modify(*args)
       application.start_worker
       task_args = TaskArguments.new(arg_names, args)
@@ -32,22 +31,33 @@ module Pwrake
         application.thread_loop(conn,self)
       else
 	loop do
-	  finished_task = application.finish_queue.deq
-	  finished_task.after_check
-	  break if finished_task==self
-	  finished_task.pw_enq_subsequents
+	  finished_tasks = application.finish_queue.deq
+	  after_check(finished_tasks)
+	  finished_tasks.each do |t|
+	    t.pw_enq_subsequents
+	  end
+	  break if finished_tasks.include? self
 	end
       end
     end
 
-    def after_check
+    def after_check(tasks)
       case application.filesystem
       when "gfarm"
-        if kind_of? Rake::FileTask
-          gfwhere_result = GfarmPath.gfwhere([self.name])
-          self.location = loc = gfwhere_result[GfarmPath.local_to_fs(self.name)]
-          #puts "'#{self.name}' exist? => #{File.exist?(self.name)} loc => #{loc}"
-        end
+	list = []
+	tasks.each do |t|
+	  list << t.name if t.kind_of? Rake::FileTask
+	end
+	if !list.empty?
+	  Log.info "-- after_check: size=#{list.size} #{list.inspect}"
+	  gfwhere_result = GfarmPath.gfwhere(list)
+	  tasks.each do |t|
+	    if t.kind_of? Rake::FileTask
+	      t.location = gfwhere_result[GfarmPath.local_to_fs(t.name)]
+	    end
+	  end
+	  #puts "'#{self.name}' exist? => #{File.exist?(self.name)} loc => #{loc}"
+	end
       end
     end
 
