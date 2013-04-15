@@ -123,7 +123,9 @@ module Pwrake
         end
       end
 
-      m = 0.05*(2**([n,5].min))
+      m = 0.02*(2**([n,5].min))
+      Log.debug "--- LAQ#deq_impl wait n=#{n} m=#{m}"
+      @cv.signal
       @cv.wait(@mutex,m)
       nil
     end
