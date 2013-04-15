@@ -170,7 +170,7 @@ module Pwrake
     end
 
     def empty?
-      @q2.keys.all?{|h| @q2[h].empty?}
+      @q2.values.all?{|q| q.empty?}
     end
 
     def finish
