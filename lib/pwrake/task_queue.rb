@@ -104,7 +104,7 @@ module Pwrake
             return false
 
           elsif @halt
-            Log.debug "--- halt in #{self.class}#deq @q=#{@q.inspect}"
+            Log.debug "--- halt in TQ#deq @q=#{@q.inspect}"
             @cv.wait(@mutex)
             n = 0
 
@@ -113,18 +113,18 @@ module Pwrake
             return item
 
           elsif empty? # no item in queue
-            Log.debug "--- empty=true in #{self.class}#deq @finished=#{@finished.inspect}"
+            #Log.debug "--- empty=true in #{self.class}#deq @finished=#{@finished.inspect}"
             if @finished
               @cv.signal
               return false
             end
-            Log.debug "--- waiting in #{self.class}#deq @finished=#{@finished.inspect}"
+            #Log.debug "--- waiting in #{self.class}#deq @finished=#{@finished.inspect}"
             @cv.wait(@mutex)
             n = 0
 
           else
             if t = deq_impl(hint,n)
-              Log.debug "--- #{self.class}#deq #{t.inspect}"
+              Log.debug "--- TQ#deq #{t.inspect}"
               return t
             end
             n += 1
@@ -147,7 +147,7 @@ module Pwrake
     end
 
     def finish
-      Log.debug "--- #{self.class}#finish"
+      Log.debug "--- TQ#finish"
       @finished = true
       @cv.signal
     end
