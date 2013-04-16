@@ -17,7 +17,7 @@ module Pwrake
 	  @enq_cond.wait @mutex
         end
 	@que.push obj
-	@cond.broadcast
+	@cond.signal
       end
     end
 
@@ -30,7 +30,7 @@ module Pwrake
 	  if @que.empty?
 	    @cond.wait @mutex
 	  else
-	    puts "@que.size = #{@que.size}"
+	    #puts "@que.size = #{@que.size}"
 	    q = @que
 	    @que = []
 	    break
