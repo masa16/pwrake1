@@ -27,7 +27,9 @@ module Pwrake
 
     def start
       return if @task_queue
-      @finish_queue = FinishQueue.new(@core_list.size)
+      csz = @core_list.size
+      qsz = [csz, (csz+4)/4, 128].min
+      @finish_queue = FinishQueue.new(qsz)
       @task_queue = @queue_class.new(@core_list)
       @task_queue.enable_steal = !Rake.application.options.disable_steal
       @shell_set = []
@@ -66,8 +68,12 @@ module Pwrake
       @task_queue.reserve(last) if last
       hint = (conn) ? conn.host : nil
       standard_exception_handling do
-        while t = @task_queue.deq(hint)
-          Log.debug "-- Master#thread_loop deq t=#{t.inspect}"
+        while true
+	  time_start = Time.now
+	  t = @task_queue.deq(hint)
+	  break if !t
+	  time_deq = Time.now - time_start
+          Log.debug "--- Master#thread_loop deq t=#{t.inspect} time=#{time_deq}sec"
           t.pw_invoke
           return if t == last
         end
