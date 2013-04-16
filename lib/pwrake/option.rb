@@ -68,6 +68,10 @@ module Pwrake
       init_options
       init_pass_env
       init_logger
+      Log.info "Options:"
+      @opts.each do |k,v|
+	Log.info " #{k} = #{v}"
+      end
       if @opts['SHOW_CONF']
         require "yaml"
         YAML.dump(@opts,$stdout)
@@ -102,7 +106,7 @@ module Pwrake
       if @pwrake_conf.nil?
         @yaml = {}
       else
-        Log.debug "@pwrake_conf=#{@pwrake_conf}"
+        Log.debug "--- @pwrake_conf=#{@pwrake_conf}"
         require "yaml"
         @yaml = open(@pwrake_conf){|f| YAML.load(f) }
       end
@@ -266,7 +270,7 @@ module Pwrake
               begin
                 host = Socket.gethostbyname(host)[0]
               rescue
-                Log.info "FQDN not resoved : #{host}"
+                Log.info "-- FQDN not resoved : #{host}"
               end
               ncore = (ncore || 1).to_i
               group = (group || 0).to_i
@@ -325,7 +329,12 @@ module Pwrake
           :basedir   => @opts['GFARM_BASEDIR'],
           :prefix    => @opts['GFARM_PREFIX']
         })
-        @queue_class = LocalityAwareQueue
+	if @opts['DISABLE_AFFINITY']
+	  @queue_class = TaskQueue
+	else
+	  @queue_class = GfarmQueue
+	end
+        Log.debug "--- @queue_class=#{@queue_class}"
       else
         @filesystem  = 'nfs'
         @shell_class = Shell
