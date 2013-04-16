@@ -34,15 +34,20 @@ module Pwrake
       end
     end
 
-    def enq_synchronize
-      if @halt
-        ret = yield
-      else
-        @mutex.synchronize do
+    def synchronize(condition)
+      ret = nil
+      if condition
+        @mutex.lock
+	@halt = true
+	begin
           ret = yield
-          enq_finish
+	  @cv.broadcast
+	ensure
+	  @halt = false
+	  @mutex.unlock
         end
-        @cv.broadcast
+      else
+	ret = yield
       end
       @reserved_q.keys.each do |th|
         Log.debug "--- run #{th}";
@@ -51,36 +56,20 @@ module Pwrake
       ret
     end
 
+
     def enq_finish
     end
 
 
+    # enq
     def enq(item,hint=nil)
-      if th = @reservation[item]
-        @reserved_q[th] = item
-      else
-        enq_impl(item,hint)
-      end
-    end
-
-
-    def enq_bak(item,hint=nil)
-      # Log.debug "--- #{self.class}#enq #{item.inspect}"
-      th = nil
+      # Log.debug "--- #{TQ}#enq #{item.inspect}"
       if @halt
-        if th = @reservation[item]
-          @reserved_q[th] = item
-        else
-          enq_impl(item,hint)
-        end
+	enq_body(item,hint)
       else
         @mutex.synchronize do
-          if th = @reservation[item]
-            @reserved_q[th] = item
-          else
-            enq_impl(item,hint)
-            @cv.signal
-          end
+	  enq_body(item,hint)
+	  @cv.signal
         end
       end
       @reserved_q.keys.each{|th|
@@ -89,13 +78,21 @@ module Pwrake
       }
     end
 
+    def enq_body(item,hint)
+      if th = @reservation[item]
+	@reserved_q[th] = item
+      else
+	enq_impl(item,hint)
+      end
+    end
+
     def enq_impl(item,hint)
       @q.push(item)          # FIFO Queue
     end
 
 
+    # deq
     def deq(hint=nil)
-      # Log.debug "--- #{self.class}#deq #{self.inspect}"
       n = 0
       loop do
         @mutex.synchronize do
@@ -115,7 +112,7 @@ module Pwrake
           elsif empty? # no item in queue
             #Log.debug "--- empty=true in #{self.class}#deq @finished=#{@finished.inspect}"
             if @finished
-              @cv.signal
+	      @cv.signal
               return false
             end
             #Log.debug "--- waiting in #{self.class}#deq @finished=#{@finished.inspect}"
@@ -163,6 +160,10 @@ module Pwrake
       @th_end.push(th)
       @cv.broadcast
     end
-  end
 
+    def after_check(tasks)
+      # implimented at subclass
+    end
+
+  end
 end
