@@ -16,50 +16,35 @@ module Pwrake
     def invoke_modify(*args)
       application.start_worker
       task_args = TaskArguments.new(arg_names, args)
-      start_time = Time.now
-      if application.pwrake_options['HALT_QUEUE_WHILE_SEARCH']
-        application.task_queue.enq_synchronize do
-          search_with_call_chain(self, task_args, InvocationChain::EMPTY)
-        end
-      else
-        search_with_call_chain(self, task_args, InvocationChain::EMPTY)
+      time_start = Time.now
+      h = application.pwrake_options['HALT_QUEUE_WHILE_SEARCH']
+      application.task_queue.synchronize(h) do
+	search_with_call_chain(self, task_args, InvocationChain::EMPTY)
       end
-      Log.info "-- search_tasks %.6fs" % (Time.now-start_time)
+      Log.info "-- search_tasks %.6fs" % (Time.now-time_start)
       return if @already_invoked
 
       if conn = Pwrake.current_shell
         application.thread_loop(conn,self)
       else
-	loop do
+
+	while true
 	  finished_tasks = application.finish_queue.deq
-	  after_check(finished_tasks)
+	  if finished_tasks.include? self
+	    if finished_tasks != [self]
+	      raise "finished_tasks is not solely target task: #{finished_tasks}"
+	    end
+	    break # loop end
+	  end
+
+	  application.task_queue.after_check(finished_tasks)
 	  finished_tasks.each do |t|
 	    t.pw_enq_subsequents
 	  end
-	  break if finished_tasks.include? self
 	end
       end
     end
 
-    def after_check(tasks)
-      case application.filesystem
-      when "gfarm"
-	list = []
-	tasks.each do |t|
-	  list << t.name if t.kind_of? Rake::FileTask
-	end
-	if !list.empty?
-	  Log.info "-- after_check: size=#{list.size} #{list.inspect}"
-	  gfwhere_result = GfarmPath.gfwhere(list)
-	  tasks.each do |t|
-	    if t.kind_of? Rake::FileTask
-	      t.location = gfwhere_result[GfarmPath.local_to_fs(t.name)]
-	    end
-	  end
-	  #puts "'#{self.name}' exist? => #{File.exist?(self.name)} loc => #{loc}"
-	end
-      end
-    end
 
     def pw_invoke
       if shell = Pwrake.current_shell
@@ -99,12 +84,10 @@ module Pwrake
 
     def pw_enq_subsequents
       @lock.synchronize do
-        application.task_queue.enq_synchronize do
-          @subsequents.each do |t|        # <<--- competition !!!
-            t && t.check_and_enq(self.name)
-          end
-          @already_finished = true        # <<--- competition !!!
-        end
+	@subsequents.each do |t|        # <<--- competition !!!
+	  t && t.check_and_enq(self.name)
+	end
+	@already_finished = true        # <<--- competition !!!
       end
     end
 
