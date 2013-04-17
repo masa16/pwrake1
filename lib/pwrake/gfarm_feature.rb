@@ -87,6 +87,18 @@ module Pwrake
       x.to_s
     end
 
+    def gfpath(file='.')
+      begin
+	IO.popen("gfstat '#{file}'") do |f|
+	  if /File: "([^"]+)"/ =~ f.gets #"
+	    return $1
+	  end
+	end
+      rescue
+      end
+      nil
+    end
+
     def gfwhere(list)
       system "sync"
       result = {}
@@ -96,7 +108,7 @@ module Pwrake
         if count==1
           result[cmd[8..-1]] = x.split
         else
-          x.scan(/^([^\n]+):\n([^\n]*)$/m) do |file,hosts|
+          x.scan(/^(?:gfarm:\/\/[^\/]+)?([^\n]+):\n([^\n]*)$/m) do |file,hosts|
             h = hosts.split
             result[file] = h if !h.empty?
           end
