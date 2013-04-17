@@ -88,6 +88,7 @@ module Pwrake
     end
 
     def gfwhere(list)
+      system "sync"
       result = {}
       count = 0
       cmd = "gfwhere"

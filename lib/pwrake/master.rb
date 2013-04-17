@@ -28,7 +28,7 @@ module Pwrake
     def start
       return if @task_queue
       csz = @core_list.size
-      qsz = [csz, (csz+4)/4, 128].min
+      qsz = [csz, (csz+4)/2, 128].min
       @finish_queue = FinishQueue.new(qsz)
       @task_queue = @queue_class.new(@core_list)
       @task_queue.enable_steal = !Rake.application.options.disable_steal
