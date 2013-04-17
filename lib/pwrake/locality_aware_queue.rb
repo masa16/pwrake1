@@ -82,7 +82,7 @@ module Pwrake
     attr_reader :size
 
 
-    def mvq(t)
+    def enq_impl(t,hint=nil)
       stored = false
       if location = t.suggest_location
         location.each do |h|
@@ -103,20 +103,13 @@ module Pwrake
     end
 
 
-    def enq_impl(item,hint=nil)
-      mvq(item)
-    end
-
-    def enq_finish
-    end
-
     def deq_impl(host,n)
       if t = deq_locate(host)
         Log.info "-- deq_locate n=#{n} task=#{t.name} host=#{host}"
         return t
       end
 
-      if @enable_steal && n > 1
+      if @enable_steal && n > 0
         if t = deq_steal(host)
           Log.info "-- deq_steal n=#{n} task=#{t.name} host=#{host}"
           return t

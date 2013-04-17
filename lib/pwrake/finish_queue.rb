@@ -12,8 +12,7 @@ module Pwrake
 
     def push(obj)
       @mutex.synchronize do
-        while true
-          break if @que.length < @max
+        while @que.length >= @max
 	  @enq_cond.wait @mutex
         end
 	@que.push obj
@@ -24,21 +23,14 @@ module Pwrake
     alias << push
     alias enq push
 
-    def pop(non_block=false)
+    def pop
       @mutex.synchronize do
-	while true
-	  if @que.empty?
-	    @cond.wait @mutex
-	  else
-	    #puts "@que.size = #{@que.size}"
-	    q = @que
-	    @que = []
-	    break
-	  end
+	while @que.empty?
+	  @cond.wait @mutex
 	end
-	if @que.length < @max
-	  @enq_cond.broadcast
-	end
+	q = @que
+	@que = []
+	@enq_cond.broadcast
 	return q
       end
     end

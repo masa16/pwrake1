@@ -56,11 +56,6 @@ module Pwrake
       ret
     end
 
-
-    def enq_finish
-    end
-
-
     # enq
     def enq(item,hint=nil)
       # Log.debug "--- #{TQ}#enq #{item.inspect}"

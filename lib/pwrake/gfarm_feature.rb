@@ -119,7 +119,7 @@ module Pwrake
         if a
           path = local_to_fs(a)
           if cmd.size + path.size + 1 > 20480 # 131000
-            x = `#{cmd}`
+            x = `#{cmd} 2> /dev/null`
             parse_proc.call(x)
             cmd = "gfwhere"
             count = 0
@@ -130,7 +130,7 @@ module Pwrake
         end
       end
       if count > 0
-        x = `#{cmd}`
+        x = `#{cmd} 2> /dev/null`
         parse_proc.call(x)
       end
       result
