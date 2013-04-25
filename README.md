@@ -53,5 +53,8 @@ Or, gem install:
 * Rake 0.9.2.2
 * Fedora 16 / Debian 5.0.7
 
-## Workflow demo
+## Acknowledgment
 
+This work is supported by 
+* JST CREST, research area: "Development of System Software Technologies for Post-Peta Scale High Performance Computing," and
+* MEXT Promotion of Research for Next Generation IT Infrastructure "Resources Linkage for e-Science (RENKEI)."
