@@ -1,6 +1,6 @@
+module Pwrake
 module FileUtils
-
-  alias sh_orig :sh
+  module_function
 
   def sh(*cmd, &block)
     options = (Hash === cmd.last) ? cmd.pop : {}
@@ -17,12 +17,36 @@ module FileUtils
       options[:verbose] ||= RakeFileUtils.verbose_flag
     end
     options[:noop]    ||= RakeFileUtils.nowrite_flag
-    rake_check_options options, :noop, :verbose
+    Rake.rake_check_options options, :noop, :verbose
     Pwrake::Log.output_message cmd.join(" ") if options[:verbose]
     unless options[:noop]
-      res,status = pwrake_system(*cmd)
+      res,status = Pwrake::FileUtils.pwrake_system(*cmd)
       block.call(res, status)
     end
+  end
+
+  def bq(*cmd, &block)
+    options = (Hash === cmd.last) ? cmd.pop : {}
+    unless block_given?
+      show_command = cmd.join(" ")
+      show_command = show_command[0,42] + "..."
+      block = lambda { |ok, status|
+        ok or fail "Command failed with status (#{status.exitstatus}): [#{show_command}]"
+      }
+    end
+    if RakeFileUtils.verbose_flag == :default
+      options[:verbose] = true
+    else
+      options[:verbose] ||= RakeFileUtils.verbose_flag
+    end
+    options[:noop]    ||= RakeFileUtils.nowrite_flag
+    Rake.rake_check_options options, :noop, :verbose
+    Pwrake::Log.output_message cmd.join(" ") if options[:verbose]
+    unless options[:noop]
+      res,status = Pwrake::FileUtils.pwrake_backquote(*cmd)
+      block.call(res, status)
+    end
+    res
   end
 
   def pwrake_system(*cmd)
@@ -42,8 +66,6 @@ module FileUtils
     tm.finish("status=%s cmd=%s"%[status.exitstatus,cmd_log])
     [res,status]
   end
-  private :pwrake_system
-
 
   # Pwrake version of backquote command
   def pwrake_backquote(cmd)
@@ -53,18 +75,23 @@ module FileUtils
     conn = Pwrake.current_shell
     if conn.kind_of?(Pwrake::Shell)
       res    = conn.backquote(*cmd)
-      status = conn.status
+      status = Rake::PseudoStatus.new(conn.status)
     else
       res    = `#{cmd}`
-      if !res && status.nil?
-        status = 1
-      else
-        status = $?.exitstatus
-      end
+      status = $?
+      status = Rake::PseudoStatus.new(1) if status.nil?
     end
 
-    tm.finish("status=%s cmd=%s"%[status,cmd_log])
-    res
+    tm.finish("status=%s cmd=%s"%[status.exitstatus,cmd_log])
+    [res,status]
   end
 
-end # module FileUtils
+end # module Pwrake::FileUtils
+end
+
+module Rake
+  module DSL
+    include Pwrake::FileUtils
+    private(*Pwrake::FileUtils.instance_methods(false))
+  end
+end
