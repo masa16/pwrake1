@@ -3,6 +3,9 @@
 Parallel workflow extension for Rake
 * Author: Masahiro Tanaka
 
+([日本語README](https://github.com/masa16/pwrake/wiki/Pwrake.ja)), 
+([GitHub Repository](https://github.com/masa16/pwrake))
+ 
 ## Features
 
 * Parallelize all tasks; no need to modify Rakefile, no need to use `multitask`.
