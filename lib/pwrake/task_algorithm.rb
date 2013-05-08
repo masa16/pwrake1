@@ -14,7 +14,16 @@ module Pwrake
     end
 
     def invoke_modify(*args)
+      return if @already_invoked
+
       application.start_worker
+
+      if conn = Pwrake.current_shell
+        th = Thread.new(conn){|c| application.thread_loop(c,self)}
+      else
+        th = Thread.new{ pw_postprocess }
+      end
+
       task_args = TaskArguments.new(arg_names, args)
       time_start = Time.now
       h = application.pwrake_options['HALT_QUEUE_WHILE_SEARCH']
@@ -22,29 +31,26 @@ module Pwrake
 	search_with_call_chain(self, task_args, InvocationChain::EMPTY)
       end
       Log.info "-- search_tasks %.6fs" % (Time.now-time_start)
-      return if @already_invoked
-
-      if conn = Pwrake.current_shell
-        application.thread_loop(conn,self)
-      else
-
-	while true
-	  finished_tasks = application.finish_queue.deq
-	  if finished_tasks.include? self
-	    if finished_tasks != [self]
-	      raise "finished_tasks is not solely target task: #{finished_tasks}"
-	    end
-	    break # loop end
-	  end
-
-	  application.task_queue.after_check(finished_tasks)
-	  finished_tasks.each do |t|
-	    t.pw_enq_subsequents
-	  end
-	end
-      end
+      th.join
     end
 
+    def pw_postprocess
+      while true
+        finished_tasks = application.finish_queue.deq
+        if finished_tasks.include? self
+          if finished_tasks != [self]
+            raise "finished_tasks is not solely target task: #{finished_tasks}"
+          end
+          break # loop end
+        end
+
+        application.task_queue.after_check(finished_tasks)
+
+        finished_tasks.each do |t|
+          t.pw_enq_subsequents
+        end
+      end
+    end
 
     def pw_invoke
       if shell = Pwrake.current_shell
