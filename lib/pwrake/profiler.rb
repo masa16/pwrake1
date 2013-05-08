@@ -19,9 +19,13 @@ module Pwrake
         @io = File.open(file,"w")
       end
       _puts table_header
+      t = Time.now
+      profile(nil,'pwrake_profile_start',t,t,1)
     end
 
     def close
+      t = Time.now
+      profile(nil,'pwrake_profile_end',t,t,1)
       @lock.synchronize do
         @io.close if @io != nil
         @io = nil
