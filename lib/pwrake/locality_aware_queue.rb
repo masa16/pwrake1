@@ -116,9 +116,9 @@ module Pwrake
         end
       end
 
-      m = 0.05*(2**([n,5].min))
-      @cv.signal
-      @cv.wait(@mutex,m)
+      #m = 0.001*(2**([n,10].min))
+      ##@cv.signal
+      #@cv.wait(@mutex,m)
       nil
     end
 

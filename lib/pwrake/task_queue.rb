@@ -122,6 +122,7 @@ module Pwrake
             n += 1
           end
         end
+        Thread.pass
       end
     end
 
