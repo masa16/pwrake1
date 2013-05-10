@@ -13,7 +13,7 @@ module Pwrake
     def push(obj)
       @mutex.synchronize do
         while @que.length >= @max
-	  @enq_cond.wait @mutex
+	  @enq_cond.wait(@mutex,3600)
         end
 	@que.push obj
 	@cond.signal
@@ -26,7 +26,7 @@ module Pwrake
     def pop
       @mutex.synchronize do
 	while @que.empty?
-	  @cond.wait @mutex
+	  @cond.wait(@mutex,3600)
 	end
 	q = @que
 	@que = []
