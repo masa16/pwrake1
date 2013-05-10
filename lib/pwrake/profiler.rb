@@ -2,9 +2,18 @@ module Pwrake
 
   class Profiler
 
+    HEADER_FOR_PROFILE =
+      %w[id task command start end elap status host]
+
+    HEADER_FOR_GNU_TIME =
+      %w[realtime systime usrtime maxrss averss memsz
+         datasz stcksz textsz pagesz majflt minflt nswap ncswinv
+         ncswvol ninp nout msgrcv msgsnd signum]
+
     def initialize
       @lock = Mutex.new
       @separator = ","
+      @re_escape = /\s#{Regexp.escape(@separator)}/
       @gnu_time = false
       @id = 0
       @io = nil
@@ -22,12 +31,12 @@ module Pwrake
       end
       _puts table_header
       t = Time.now
-      profile(nil,'pwrake_profile_start',t,t,1)
+      profile(nil,'pwrake_profile_start',t,t)
     end
 
     def close
       t = Time.now
-      profile(nil,'pwrake_profile_end',t,t,1)
+      profile(nil,'pwrake_profile_end',t,t)
       @lock.synchronize do
         @io.close if @io != nil
         @io = nil
@@ -44,11 +53,9 @@ module Pwrake
     end
 
     def table_header
-      a = %w[id task command start end elap status]
+      a = HEADER_FOR_PROFILE
       if @gnu_time
-        a.concat %w[realtime systime usrtime maxrss averss memsz
-           datasz stcksz textsz pagesz majflt minflt nswap ncswinv
-           ncswvol ninp nout msgrcv msgsnd signum]
+        a += HEADER_FOR_GNU_TIME
       end
       a.join(@separator)
     end
@@ -71,21 +78,24 @@ module Pwrake
       t.utc.strftime("%F %T.%L").inspect
     end
 
-    def profile(task, cmd, start_time, end_time, status)
+    def profile(task, cmd, start_time, end_time, host="", status="")
       id = @lock.synchronize do
         id = @id
         @id += 1
         id
       end
       if @io
+        host = '"'+host+'"' if @re_escape =~ host
         _puts [id, task && task.name.inspect,
                cmd.inspect,
                format_time(start_time),
                format_time(end_time),
                "%.3f" % (end_time-start_time),
-               status].join(@separator)
+               host, status].join(@separator)
       end
-      if @gnu_time
+      if status==""
+        1
+      elsif @gnu_time
         /^([^,]*),/ =~ status
         Integer($1)
       else

@@ -133,7 +133,7 @@ module Pwrake
       status = io_read_loop(&block)
       end_time = Time.now
       @status = @@profiler.profile(@current_task, cmd,
-                                   start_time, end_time, status)
+                                   start_time, end_time, host, status)
       @status == 0
     end
 
