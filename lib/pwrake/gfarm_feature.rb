@@ -198,64 +198,65 @@ module Pwrake
   end
 
 
-  class GfarmQueue < LocalityAwareQueue
+  class GfarmPostprocess
 
-    def after_check(tasks)
-      list = []
-      tasks.each do |t|
-	list << t.name if t.kind_of? Rake::FileTask
-      end
-      if !list.empty?
-	Log.info "-- after_check: size=#{list.size} #{list.inspect}"
-	gfwhere_result = GfarmPath.gfwhere(list)
-	tasks.each do |t|
-	  if t.kind_of? Rake::FileTask
-	    t.location = gfwhere_result[GfarmPath.local_to_fs(t.name)]
-	  end
-	end
-	#puts "'#{self.name}' exist? => #{File.exist?(self.name)} loc => #{loc}"
-      end
+    def initialize
+      @lock = Mutex.new
+      @io = IO.popen('gfwhere-pipe','r+')
+      @io.sync = true
     end
 
-=begin
-    def abr_msg(a)
-      m = a[0..5].map{|x| x}.inspect
-      m.sub!(/]$/,",...") if a.size > 6
-      "size=#{a.size} #{m}"
-    end
-
-    def where(tasks)
-      if Pwrake.application.options.dryrun ||
-          Pwrake.application.options.disable_affinity
-        return tasks
-      end
-
-      start_time = Time.now
-      #Log.debug "--- GfarmQueue#where #{tasks.inspect}"
-      #if Pwrake.manager.gfarm and Pwrake.manager.affinity
-      gfwhere_result = {}
-      filenames = []
-      tasks.each do |t|
-        if t.kind_of?(Rake::FileTask) and
-            name = t.prerequisites[0] and
-            !filenames.include?(name)
-          filenames << name
+    def gfwhere(file)
+      return [] if file==''
+      @lock.synchronize do
+        @io.puts(file)
+        @io.flush
+        s = @io.gets
+        if s.nil?
+          raise "gfwhere: unexpected end"
         end
-      end
-
-      if !filenames.empty?
-        gfwhere_result = GfarmPath.gfwhere(filenames)
-        tasks.each do |t|
-          if t.kind_of? Rake::FileTask and prereq_name = t.prerequisites[0]
-            t.location = gfwhere_result[GfarmPath.local_to_fs(prereq_name)]
+        s.chomp!
+        if s != file
+          raise "gfwhere: file=#{file}, result=#{s}"
+        end
+        while s = @io.gets
+          s.chomp!
+          case s
+          when ""
+            next
+          when /^gfarm:\/\//
+            next
+          when /^Error:/
+            return []
+          else
+            return s.split(/\s+/)
           end
         end
       end
-      Log.info "-- GfarmQueue#where %.6fs %s" % [Time.now-start_time,abr_msg(filenames)]
-      tasks
     end
-=end
+
+    def postprocess(t)
+      if t.kind_of? Rake::FileTask
+        t.location = gfwhere(t.name)
+      end
+    end
+
+    def postprocess_bulk(tasks)
+      list = []
+      tasks.each do |t|
+       list << t.name if t.kind_of? Rake::FileTask
+      end
+      if !list.empty?
+       Log.info "-- after_check: size=#{list.size} #{list.inspect}"
+       gfwhere_result = GfarmPath.gfwhere(list)
+       tasks.each do |t|
+         if t.kind_of? Rake::FileTask
+           t.location = gfwhere_result[GfarmPath.local_to_fs(t.name)]
+         end
+       end
+       #puts "'#{self.name}' exist? => #{File.exist?(self.name)} loc => #{loc}"
+      end
+    end
 
   end
-
 end

@@ -18,54 +18,77 @@ module Pwrake
 
       application.start_worker
 
+      th = Thread.new(args){|a| pw_search_tasks(a) }
+
+      #pw_search_tasks(args)
+
       if conn = Pwrake.current_shell
-        th = Thread.new(conn){|c| application.thread_loop(c,self)}
+        application.thread_loop(conn,self)
       else
-        th = Thread.new{ pw_postprocess }
+        while true
+          t = application.finish_queue.deq
+          break if t==self
+          #application.postprocess(t)   #        <---------
+          #t.pw_enq_subsequents         #        <---------
+        end
       end
 
+      th.join
+    end
+
+    def pw_search_tasks(args)
       task_args = TaskArguments.new(arg_names, args)
-      time_start = Time.now
+      timer = Timer.new("search_task")
       h = application.pwrake_options['HALT_QUEUE_WHILE_SEARCH']
       application.task_queue.synchronize(h) do
 	search_with_call_chain(self, task_args, InvocationChain::EMPTY)
       end
-      Log.info "-- search_tasks %.6fs" % (Time.now-time_start)
-      th.join
-    end
-
-    def pw_postprocess
-      while true
-        finished_tasks = application.finish_queue.deq
-        if finished_tasks.include? self
-          if finished_tasks != [self]
-            raise "finished_tasks is not solely target task: #{finished_tasks}"
-          end
-          break # loop end
-        end
-
-        application.task_queue.after_check(finished_tasks)
-
-        finished_tasks.each do |t|
-          t.pw_enq_subsequents
-        end
-      end
+      timer.finish
     end
 
     def pw_invoke
       if shell = Pwrake.current_shell
         shell.current_task = self
-        log_host(shell.host)
+        host = shell.host
+        log_host(host)
+=begin
+        if host && kind_of? Rake::FileTask
+          a = []
+          @prerequisites.each do |x|
+            preq = nil
+            begin
+              preq = Rake.application[x]
+            rescue
+            end
+            if preq
+              p preq.location
+              if !preq.location.include?(host)
+                if File.file?(preq.name)
+                  a << x
+                end
+              end
+            end
+          end
+          if !a.empty?
+            cmd = "gfrep -q -D #{host} #{a.join ' '}"
+            Log.info(cmd)
+            puts cmd
+            system cmd
+          end
+        end
+=end
       end
+
       @lock.synchronize do
         return if @already_invoked
         @already_invoked = true
       end
       pw_execute(@arg_data) if needed?
+      application.postprocess(self) #        <---------
+      pw_enq_subsequents2           #        <---------
       application.finish_queue.enq(self)
       shell.current_task = nil if shell
     end
-
 
     # Execute the actions associated with this task.
     def pw_execute(args=nil)
@@ -90,10 +113,21 @@ module Pwrake
 
     def pw_enq_subsequents
       @lock.synchronize do
-	@subsequents.each do |t|        # <<--- competition !!!
-	  t && t.check_and_enq(self.name)
-	end
-	@already_finished = true        # <<--- competition !!!
+        @subsequents.each do |t|        # <<--- competition !!!
+          t && t.check_and_enq(self.name)
+        end
+        @already_finished = true        # <<--- competition !!!
+      end
+    end
+
+    def pw_enq_subsequents2
+      @lock.synchronize do
+        application.task_queue.synchronize(true) do
+          @subsequents.each do |t|        # <<--- competition !!!
+            t && t.check_and_enq(self.name)
+          end
+          @already_finished = true        # <<--- competition !!!
+        end
       end
     end
 
@@ -121,7 +155,12 @@ module Pwrake
         if ! @already_searched
           @already_searched = true
           @arg_data = task_args
-          search_prerequisites(task_args, new_chain)
+          if @prerequisites.empty?
+            @unfinished_prereq = {}
+            application.task_queue.enq(self)
+          else
+            search_prerequisites(task_args, new_chain)
+          end
         end
         return false
       end

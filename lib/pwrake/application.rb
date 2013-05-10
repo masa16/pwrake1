@@ -29,6 +29,12 @@ module Pwrake
       @master.finish_queue
     end
 
+    def postprocess(t)
+      if @master.postprocess
+        @master.postprocess.postprocess(t)
+      end
+    end
+
     def thread_loop(*args)
       @master.thread_loop(*args)
     end
@@ -39,6 +45,10 @@ module Pwrake
 
     def start_worker
       @master.start
+    end
+
+    def core_list
+      @master.core_list
     end
 
     # Run the Pwrake application.

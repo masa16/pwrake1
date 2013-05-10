@@ -1,3 +1,4 @@
+require "pwrake/wait_queue"
 module Pwrake
 
   def current_shell
@@ -18,6 +19,7 @@ module Pwrake
     attr_reader :finish_queue
     attr_reader :shell_set
     attr_reader :filesystem
+    attr_reader :postprocess
 
     def initialize
       init_option    # Pwrake::Option
@@ -27,12 +29,8 @@ module Pwrake
 
     def start
       return if @task_queue
-      csz = @core_list.size
-      #qsz = [csz, (csz+4)/4, 128].min
-      #qsz = [[csz*2, 24].max, 250].min
-      qsz = [[csz, 24].max, 250].min
-      Log.info "-- qsize=#{qsz}"
-      @finish_queue = FinishQueue.new(qsz)
+      timer = Timer.new("start_worker")
+      @finish_queue = Queue.new
       @task_queue = @queue_class.new(@core_list)
       @task_queue.enable_steal = !Rake.application.options.disable_steal
       @shell_set = []
@@ -40,6 +38,7 @@ module Pwrake
         @shell_set << @shell_class.new(h,@shell_opt)
       end
       start_threads
+      timer.finish
     end
 
     def finish

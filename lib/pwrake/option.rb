@@ -23,6 +23,7 @@ module Pwrake
        'SSH_OPTION',
        'PASS_ENV',
        'GNU_TIME',
+       'PLOT_PARALLELISM',
        'HALT_QUEUE_WHILE_SEARCH',
        'SHOW_CONF',
 
@@ -299,7 +300,7 @@ module Pwrake
 
     def set_filesystem
       if fn = @opts["PROFILE"]
-        Shell.profiler.open(fn,@opts['GNU_TIME'])
+        Shell.profiler.open(fn,@opts['GNU_TIME'],@opts['PLOT_PARALLELISM'])
       end
 
       @shell_opt = {
@@ -332,7 +333,8 @@ module Pwrake
 	if @opts['DISABLE_AFFINITY']
 	  @queue_class = TaskQueue
 	else
-	  @queue_class = GfarmQueue
+	  @queue_class = LocalityAwareQueue
+          @postprocess = GfarmPostprocess.new
 	end
         Log.debug "--- @queue_class=#{@queue_class}"
       else
