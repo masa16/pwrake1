@@ -1,4 +1,3 @@
-require "pwrake/wait_queue"
 module Pwrake
 
   def current_shell
