@@ -3,7 +3,7 @@ module Pwrake
   class Profiler
 
     HEADER_FOR_PROFILE =
-      %w[id task command start end elap status host]
+      %w[id task desc command start end elap status host]
 
     HEADER_FOR_GNU_TIME =
       %w[realtime systime usrtime maxrss averss memsz
@@ -42,7 +42,7 @@ module Pwrake
         @io = nil
       end
       if @plot
-        plot_parallelism(@file)
+        Profiler.plot_parallelism(@file)
       end
     end
 
@@ -85,9 +85,15 @@ module Pwrake
         id
       end
       if @io
+        if task.kind_of? Rake::Task
+          tname = task.name.inspect
+          tdesc = task.comment
+        else
+          tname = ""
+          tdesc = ""
+        end
         host = '"'+host+'"' if @re_escape =~ host
-        _puts [id, task && task.name.inspect,
-               cmd.inspect,
+        _puts [id, tname, tdesc, cmd.inspect,
                format_time(start_time),
                format_time(end_time),
                "%.3f" % (end_time-start_time),
@@ -103,37 +109,40 @@ module Pwrake
       end
     end
 
-    def parse_time(s)
+    def self.parse_time(s)
       /(\d+)\D(\d+)\D(\d+)\D(\d+)\D(\d+)\D(\d+)\.(\d+)/ =~ s
       a = [$1,$2,$3,$4,$5,$6,$7].map{|x| x.to_i}
       Time.new(*a[0..5],"+00:00") + a[6]*0.001
     end
 
-    def plot_parallelism(file)
+    def self.plot_parallelism(file)
       require "csv"
 
       base = File.basename(file,".csv")
       fout = base+".dat"
 
       a = []
-      n = 0
+      start_time = nil
 
       CSV.foreach(file) do |l|
-        if n>0
-          t = parse_time(l[3]+" +0000")
+        if l[3] == 'pwrake_profile_start'
+          start_time = parse_time(l[4]+" +0000")
+        elsif l[3] == 'pwrake_profile_end'
+          t = parse_time(l[4]+" +0000") - start_time
+          a << [t,0]
+        elsif start_time
+          t = parse_time(l[4]+" +0000") - start_time
           a << [t,+1]
-          t = parse_time(l[4]+" +0000")
+          t = parse_time(l[5]+" +0000") - start_time
           a << [t,-1]
-        else
-          n += 1
         end
       end
 
+      return if a.size < 4
+
       a = a.sort{|x,y| x[0]<=>y[0]}
-      t_end = (a.last)[0] - (a.first)[0]
 
       level = 0
-      t0 = a[0][0]
 
       n = a.size
       i = 0
@@ -142,20 +151,24 @@ module Pwrake
 
       File.open(fout,"w") do |f|
         begin
-          while i < n
-            t = a[i][0]
-            f.printf "%.3f %d\n", t-t0, y
-            begin
-              y += a[i][1]
-              i += 1
-            end while i < n && (a[i][0]-t).abs <= 0.0005
-            f.printf "%.3f %d\n", t-t0, y
+          t = 0
+          y_pre = 0
+          n.times do |i|
+            if a[i][0]-t > 0.001
+              f.printf "%.3f %d\n", t, y_pre
+              t = a[i][0]
+              f.printf "%.3f %d\n", t, y
+            end
+            y += a[i][1]
+            y_pre = y
             y_max = y if y > y_max
           end
         rescue
           p a[i]
         end
       end
+
+      t_end = (a.last)[0]
 
       IO.popen("gnuplot","r+") do |f|
         f.puts "
