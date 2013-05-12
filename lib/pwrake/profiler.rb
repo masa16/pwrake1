@@ -3,7 +3,7 @@ module Pwrake
   class Profiler
 
     HEADER_FOR_PROFILE =
-      %w[id task desc command start end elap status host]
+      %w[id task command start end elap status host]
 
     HEADER_FOR_GNU_TIME =
       %w[realtime systime usrtime maxrss averss memsz
@@ -87,13 +87,13 @@ module Pwrake
       if @io
         if task.kind_of? Rake::Task
           tname = task.name.inspect
-          tdesc = task.comment
+          #tdesc = task.comment
         else
           tname = ""
-          tdesc = ""
+          #tdesc = ""
         end
         host = '"'+host+'"' if @re_escape =~ host
-        _puts [id, tname, tdesc, cmd.inspect,
+        _puts [id, tname, cmd.inspect,
                format_time(start_time),
                format_time(end_time),
                "%.3f" % (end_time-start_time),
@@ -125,15 +125,15 @@ module Pwrake
       start_time = nil
 
       CSV.foreach(file) do |l|
-        if l[3] == 'pwrake_profile_start'
+        if l[2] == 'pwrake_profile_start'
           start_time = parse_time(l[4]+" +0000")
-        elsif l[3] == 'pwrake_profile_end'
-          t = parse_time(l[4]+" +0000") - start_time
+        elsif l[2] == 'pwrake_profile_end'
+          t = parse_time(l[3]+" +0000") - start_time
           a << [t,0]
         elsif start_time
-          t = parse_time(l[4]+" +0000") - start_time
+          t = parse_time(l[3]+" +0000") - start_time
           a << [t,+1]
-          t = parse_time(l[5]+" +0000") - start_time
+          t = parse_time(l[4]+" +0000") - start_time
           a << [t,-1]
         end
       end
