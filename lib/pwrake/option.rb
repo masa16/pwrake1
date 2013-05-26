@@ -295,6 +295,7 @@ module Pwrake
         @num_threads = 1 if !@num_threads
         @core_list = ['localhost'] * @num_threads
       end
+      Log.info "num_cores=#{@core_list.size}"
     end
 
 
