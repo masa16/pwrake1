@@ -260,8 +260,8 @@ module Pwrake
       if @tasklog
         @task_logger = File.open(@tasklog,'w')
         h = %w[
-          name time_start time_end time_elap preq preq_host
-          exec_host shell_id file_size file_mtime file_host
+          name time_start time_end time_elap preq preq_host exec_host
+          shell_id has_action executed file_size file_mtime file_host
         ].join(',')+"\n"
         @task_logger.print h
       end

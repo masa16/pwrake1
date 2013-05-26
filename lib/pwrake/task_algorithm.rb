@@ -113,6 +113,9 @@ module Pwrake
         row.concat ['','']
       end
 
+      row << ((@actions.empty?) ? 0 : 1)
+      row << ((@executed) ? 1 : 0)
+
       if loc && shell
         Pwrake.application.count( loc, shell.host )
       end
@@ -133,7 +136,7 @@ module Pwrake
       end.join(',')
 
       # name time_start time_end time_elap preq preq_host
-      # exec_host shell_id file_size file_mtime file_host
+      # exec_host shell_id has_action executed file_size file_mtime file_host
       application.task_logger.print s+"\n"
     end
 
@@ -157,6 +160,7 @@ module Pwrake
           act.call(self, args)
         end
       end
+      @executed = true if !@actions.empty?
     end
 
     def pw_enq_subsequents
