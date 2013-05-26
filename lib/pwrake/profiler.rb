@@ -222,6 +222,7 @@ plot '#{fpara}' w l axis x1y1 title 'parallelism'
       base = File.basename(file,".csv")
       fpara = base+"_para.dat"
       fdens = base+'_dens.dat'
+      fimg = base+'.png'
 
       File.open(fdens,"w") do |f|
         density.each do |t,d|
@@ -258,7 +259,7 @@ plot '#{fpara}' w l axis x1y1 title 'parallelism'
       IO.popen("gnuplot","r+") do |f|
         f.puts "
 set terminal png
-set output '#{base}.png'
+set output '#{fimg}'
 #set rmargin 10
 set title '#{base}'
 set xlabel 'time (sec)'
@@ -268,13 +269,14 @@ set ytics nomirror
 set y2label 'exec/sec'
 
 set arrow 1 from #{t_end},#{y_max*0.5} to #{t_end},0 linecolor rgb 'blue'
-set label 1 at first #{t_end},#{y_max*0.5} right \"#{t_end}\\nsec\" textcolor rgb 'blue'
+set label 1 \"#{t_end}\\nsec\" at first #{t_end},#{y_max*0.5} right front textcolor rgb 'blue'
 
 plot '#{fpara}' w l axis x1y1 title 'parallelism', '#{fdens}' w l axis x1y2 title 'exec/sec'
 "
       end
 
-      puts "Parallelism plot: #{base}.png"
+      puts "Parallelism plot: #{fimg}"
+      fimg
     end
 
   end
