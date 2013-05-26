@@ -51,6 +51,10 @@ module Pwrake
       @master.core_list
     end
 
+    def task_logger
+      @master.task_logger
+    end
+
     # Run the Pwrake application.
     def run
       standard_exception_handling do

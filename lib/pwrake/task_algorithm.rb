@@ -47,10 +47,11 @@ module Pwrake
     end
 
     def pw_invoke
+      time_start = Time.now
       if shell = Pwrake.current_shell
         shell.current_task = self
         host = shell.host
-        log_host(host)
+        #log_host(host)
 =begin
         if host && kind_of? Rake::FileTask
           a = []
@@ -85,10 +86,57 @@ module Pwrake
       end
       pw_execute(@arg_data) if needed?
       application.postprocess(self) #        <---------
+      log_task(time_start)
       pw_enq_subsequents2           #        <---------
       application.finish_queue.enq(self)
       shell.current_task = nil if shell
     end
+
+    def log_task(time_start)
+      return if !application.task_logger
+      row = [name]
+
+      time_end = Time.now
+      row.concat [time_start, time_end, time_end-time_start]
+
+      row << @prerequisites.join('|')
+
+      if loc = suggest_location()
+        row << loc.join('|')
+      else
+        row << ''
+      end
+
+      if shell = Pwrake.current_shell
+        row.concat [shell.host, shell.id]
+      else
+        row.concat ['','']
+      end
+
+      if loc && shell
+        Pwrake.application.count( loc, shell.host )
+      end
+
+      if kind_of?(Rake::FileTask)
+        s = File::Stat.new(name)
+        row.concat [s.size, s.mtime, self.location.join('|')]
+      else
+        row.concat ['','','']
+      end
+
+      s = row.map do |x|
+        if x.kind_of?(String) && x!=''
+          '"'+x+'"'
+        else
+          x.to_s
+        end
+      end.join(',')
+
+      # name time_start time_end time_elap preq preq_host
+      # exec_host shell_id file_size file_mtime file_host
+      application.task_logger.print s+"\n"
+    end
+
 
     # Execute the actions associated with this task.
     def pw_execute(args=nil)

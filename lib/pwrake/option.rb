@@ -39,6 +39,15 @@ module Pwrake
             START_TIME.strftime(v).sub("%$",Process.pid.to_s)
           end
         }],
+       ['TASKLOG',
+        proc{|v|
+          if v
+            if v == "" || !v.kind_of?(String)
+              v = "Pwrake%Y%m%d-%H%M%S_%$.task"
+            end
+            START_TIME.strftime(v).sub("%$",Process.pid.to_s)
+          end
+        }],
        ['PROFILE',
         proc{|v|
           if v
@@ -86,7 +95,7 @@ module Pwrake
     attr_reader :logfile
     attr_reader :queue_class
     attr_reader :shell_class
-
+    attr_reader :task_logger
 
     def pwrake_options
       @opts
@@ -247,6 +256,15 @@ module Pwrake
       else
         Log.open($stdout)
       end
+
+      if @tasklog
+        @task_logger = File.open(@tasklog,'w')
+        h = %w[
+          name time_start time_end time_elap preq preq_host
+          exec_host shell_id file_size file_mtime file_host
+        ].join(',')+"\n"
+        @task_logger.print h
+      end
     end
 
     # ----- setup -----
@@ -371,6 +389,7 @@ module Pwrake
     # ----- finish -----
 
     def finish_option
+      @task_logger.close
       Log.close
     end
 
