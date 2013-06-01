@@ -6,6 +6,10 @@ module Pwrake
 
     DEFAULT_CONFFILES = ["pwrake_conf.yaml","PwrakeConf.yaml"]
 
+    def format_time_pid(v)
+      START_TIME.strftime(v).sub("%$","%05d"%Process.pid)
+    end
+
     def option_data
       [
        'DRYRUN',
@@ -36,7 +40,7 @@ module Pwrake
             if v == "" || !v.kind_of?(String)
               v = "Pwrake%Y%m%d-%H%M%S_%$.log"
             end
-            START_TIME.strftime(v).sub("%$",Process.pid.to_s)
+            format_time_pid(v)
           end
         }],
        ['TASKLOG',
@@ -45,7 +49,7 @@ module Pwrake
             if v == "" || !v.kind_of?(String)
               v = "Pwrake%Y%m%d-%H%M%S_%$.task"
             end
-            START_TIME.strftime(v).sub("%$",Process.pid.to_s)
+            format_time_pid(v)
           end
         }],
        ['PROFILE',
@@ -54,7 +58,7 @@ module Pwrake
             if v == "" || !v.kind_of?(String)
               v = "Pwrake%Y%m%d-%H%M%S_%$.csv"
             end
-            START_TIME.strftime(v).sub("%$",Process.pid.to_s)
+            format_time_pid(v)
           end
         }],
        ['NUM_THREADS', proc{|v| v && v.to_i}],
