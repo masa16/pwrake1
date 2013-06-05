@@ -69,11 +69,15 @@ class Helper
       while l = f.gets
         l = $1 if /^([^#]*)#/ =~ l
         host, ncore, group = l.split
-        if host
+        case host
+        when /^localhost(\.localdomain)?$/
+          host = `hostname`.chomp if ssh
+        when nil
+        else
           host = `ssh #{host} hostname`.chomp if ssh
-          ncore = (ncore || 1).to_i
-          cores.concat( [host] * ncore )
         end
+        ncore = (ncore || 1).to_i
+        cores.concat( [host] * ncore )
       end
     end
     cores
