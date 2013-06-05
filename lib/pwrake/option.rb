@@ -357,8 +357,8 @@ module Pwrake
 	  @queue_class = TaskQueue
 	else
 	  @queue_class = LocalityAwareQueue
-          @postprocess = GfarmPostprocess.new
 	end
+        @postprocess = GfarmPostprocess.new
         Log.debug "--- @queue_class=#{@queue_class}"
       else
         @filesystem  = 'nfs'
