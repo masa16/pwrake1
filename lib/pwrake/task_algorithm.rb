@@ -13,6 +13,10 @@ module Pwrake
       @location = a
     end
 
+    def task_id
+      @task_id
+    end
+
     def invoke_modify(*args)
       return if @already_invoked
 
@@ -83,6 +87,7 @@ module Pwrake
       @lock.synchronize do
         return if @already_invoked
         @already_invoked = true
+        @task_id = application.task_id_counter
       end
       pw_execute(@arg_data) if needed?
       application.postprocess(self) #        <---------
@@ -94,12 +99,11 @@ module Pwrake
 
     def log_task(time_start)
       return if !application.task_logger
-      row = [name]
-
       time_end = Time.now
-      row.concat [time_start, time_end, time_end-time_start]
-
-      row << @prerequisites.join('|')
+      row = [ @task_id, name,
+        time_start, time_end, time_end-time_start,
+        @prerequisites.join('|')
+      ]
 
       if loc = suggest_location()
         row << loc.join('|')
@@ -128,14 +132,16 @@ module Pwrake
       end
 
       s = row.map do |x|
-        if x.kind_of?(String) && x!=''
+        if x.kind_of?(Time)
+          Profiler.format_time(x)
+        elsif x.kind_of?(String) && x!=''
           '"'+x+'"'
         else
           x.to_s
         end
       end.join(',')
 
-      # name time_start time_end time_elap preq preq_host
+      # task_id task_name start_time end_time elap_time preq preq_host
       # exec_host shell_id has_action executed file_size file_mtime file_host
       application.task_logger.print s+"\n"
     end

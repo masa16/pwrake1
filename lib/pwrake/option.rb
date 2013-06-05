@@ -264,8 +264,8 @@ module Pwrake
       if @tasklog
         @task_logger = File.open(@tasklog,'w')
         h = %w[
-          name time_start time_end time_elap preq preq_host exec_host
-          shell_id has_action executed file_size file_mtime file_host
+          task_id task_name start_time end_time elap_time preq preq_host
+          exec_host shell_id has_action executed file_size file_mtime file_host
         ].join(',')+"\n"
         @task_logger.print h
       end
@@ -393,7 +393,7 @@ module Pwrake
     # ----- finish -----
 
     def finish_option
-      @task_logger.close
+      @task_logger.close if @task_logger
       Log.close
     end
 

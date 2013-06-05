@@ -2,14 +2,6 @@ module Pwrake
 
   class Report
 
-    class << self
-      def parse_time(s)
-        /(\d+)\D(\d+)\D(\d+)\D(\d+)\D(\d+)\D(\d+)\.(\d+)/ =~ s
-        a = [$1,$2,$3,$4,$5,$6,$7].map{|x| x.to_i}
-        Time.new(*a[0..5],"+00:00") + a[6]*0.001
-      end
-    end
-
     HTML_HEAD = <<EOL
 <html><head><style>
 <!--
@@ -50,8 +42,8 @@ EOL
         end
       end
       @hosts = h.keys.sort
-      @start_time = Report.parse_time(@sh_table[0]["start"])
-      @end_time = Report.parse_time(@sh_table[-1]["start"])
+      @start_time = Time.parse(@sh_table[0]["start_time"])
+      @end_time = Time.parse(@sh_table[-1]["start_time"])
       @elap = @end_time - @start_time
       @pattern = pattern
       read_elap_each_cmd
@@ -67,7 +59,7 @@ EOL
       @cmd_elap = {}
       @sh_table.each do |row|
         command = row['command']
-        elap = row['elap']
+        elap = row['elap_time']
         if command && elap
           elap = elap.to_f
           found = nil
@@ -246,7 +238,7 @@ EOL
       file_size = {}
       file_host = {}
       @task_table.each do |row|
-        name = row['name']
+        name = row['task_name']
         file_size[name] = row['file_size'].to_i
         file_host[name] = (row['file_host']||'').split('|')
       end
@@ -262,7 +254,7 @@ EOL
       h = {}
       @task_table.each do |row|
         if row['executed']=='1'
-          name = row['name']
+          name = row['task_name']
           exec_host = row['exec_host']
           h[exec_host] = true
           if file_host[name].include?(exec_host)
@@ -290,7 +282,7 @@ EOL
 
       @elap_host = Hash.new(0)
       @sh_table.each do |row|
-        if (h = row['host']) && (t = row['elap'])
+        if (h = row['host']) && (t = row['elap_time'])
           @elap_host[h] += t.to_f
         end
       end

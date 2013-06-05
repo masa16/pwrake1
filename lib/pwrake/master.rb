@@ -24,6 +24,8 @@ module Pwrake
       init_option    # Pwrake::Option
       setup_option   # Pwrake::Option
       @started = false
+      @lock = Mutex.new
+      @current_task_id = -1
     end
 
     def start
@@ -78,6 +80,12 @@ module Pwrake
           t.pw_invoke
           return if t == last
         end
+      end
+    end
+
+    def task_id_counter
+      @lock.synchronize do
+        @current_task_id += 1
       end
     end
 

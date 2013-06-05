@@ -3,7 +3,8 @@ module Pwrake
   class Profiler
 
     HEADER_FOR_PROFILE =
-      %w[id task command start end elap host status]
+      %w[exec_id task_id task_name command
+         start_time end_time elap_time host status]
 
     HEADER_FOR_GNU_TIME =
       %w[realtime systime usrtime maxrss averss memsz
@@ -76,7 +77,12 @@ module Pwrake
     end #`
 
     def format_time(t)
-      t.utc.strftime("%F %T.%L").inspect
+      #t.utc.strftime("%F %T.%L")
+      t.strftime("%F %T.%L")
+    end
+
+    def self.format_time(t)
+      t.strftime("%F %T.%L")
     end
 
     def profile(task, cmd, start_time, end_time, host="", status="")
@@ -88,13 +94,13 @@ module Pwrake
       if @io
         if task.kind_of? Rake::Task
           tname = task.name.inspect
-          #tdesc = task.comment
+          task_id = task.task_id
         else
           tname = ""
-          #tdesc = ""
+          task_id = ""
         end
         host = '"'+host+'"' if @re_escape =~ host
-        _puts [id, tname, cmd.inspect,
+        _puts [id, task_id, tname, cmd.inspect,
                format_time(start_time),
                format_time(end_time),
                "%.3f" % (end_time-start_time),

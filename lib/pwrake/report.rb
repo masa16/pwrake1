@@ -1,3 +1,4 @@
+require 'time'
 require 'csv'
 require 'pwrake/report/parallelism.rb'
 require 'pwrake/report/report.rb'

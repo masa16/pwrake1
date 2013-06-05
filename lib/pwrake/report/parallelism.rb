@@ -9,14 +9,14 @@ module Pwrake
 
       CSV.foreach(file,:headers=>true) do |row|
         if row['command'] == 'pwrake_profile_start'
-          start_time = Report.parse_time(row[4]+" +0000")
+          start_time = Time.parse(row['start_time'])
         elsif row['command'] == 'pwrake_profile_end'
-          t = Report.parse_time(row['start']+" +0000") - start_time
+          t = Time.parse(row['start_time']) - start_time
           a << [t,0]
         elsif start_time
-          t = Report.parse_time(row['start']+" +0000") - start_time
+          t = Time.parse(row['start_time']) - start_time
           a << [t,+1]
-          t = Report.parse_time(row['end']+" +0000") - start_time
+          t = Time.parse(row['end_time']) - start_time
           a << [t,-1]
         end
       end
@@ -171,17 +171,17 @@ plot '#{fpara}' w l axis x1y1 title 'parallelism', '#{fdens}' w l axis x1y2 titl
       csvtable.each do |row|
         host = row['host']
         if row['command'] == 'pwrake_profile_start'
-          start_time = Report.parse_time(row[4]+" +0000")
+          start_time = Time.parse(row['start_time'])
         elsif row['command'] == 'pwrake_profile_end'
-          t = Report.parse_time(row['start']+" +0000") - start_time
+          t = Time.parse(row['start_time']) - start_time
           a.each do |h,v|
             v << [t,0]
           end
         elsif start_time
           a[host] ||= []
-          t = Report.parse_time(row['start']+" +0000") - start_time
+          t = Time.parse(row['start_time']) - start_time
           a[host] << [t,+1]
-          t = Report.parse_time(row['end']+" +0000") - start_time
+          t = Time.parse(row['end_time']) - start_time
           a[host] << [t,-1]
         end
       end
