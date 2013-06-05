@@ -173,9 +173,9 @@ EOL
 
 
       html << "<tr><th></th><th></th>"
-      html << "<th colspan=3>num of times</th><th colspan=3>file size (bytes)</th>"
+      html << "<th colspan=3>count</th><th colspan=3>file size (bytes)</th>"
       html << "<th></th>"
-      html << "<th colspan=3>num of times</th><th colspan=3>file size (bytes)</th>"
+      html << "<th colspan=3>count</th><th colspan=3>file size (bytes)</th>"
       html << "</tr>\n"
 
       html << "<tr><th>host</th><th></th>"
