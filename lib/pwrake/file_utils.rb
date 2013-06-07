@@ -18,7 +18,7 @@ module FileUtils
     end
     options[:noop]    ||= RakeFileUtils.nowrite_flag
     Rake.rake_check_options options, :noop, :verbose
-    Pwrake::Log.output_message cmd.join(" ") if options[:verbose]
+    Pwrake::Log.stderr_puts cmd.join(" ") if options[:verbose]
     unless options[:noop]
       res,status = Pwrake::FileUtils.pwrake_system(*cmd)
       block.call(res, status)
@@ -41,7 +41,7 @@ module FileUtils
     end
     options[:noop]    ||= RakeFileUtils.nowrite_flag
     Rake.rake_check_options options, :noop, :verbose
-    Pwrake::Log.output_message cmd.join(" ") if options[:verbose]
+    Pwrake::Log.stderr_puts cmd.join(" ") if options[:verbose]
     unless options[:noop]
       res,status = Pwrake::FileUtils.pwrake_backquote(*cmd)
       block.call(res, status)

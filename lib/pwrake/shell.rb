@@ -95,7 +95,7 @@ module Pwrake
       command = command.join(' ')
       Log.debug "--- command=#{command.inspect}"
       @lock.synchronize do
-        _execute(command){|x| LOCK.synchronize{puts x}}
+        _execute(command){|x| Log.stdout_puts x}
       end
     end
 
@@ -128,13 +128,17 @@ module Pwrake
 
     def _execute(cmd,quote=nil,&block)
       raise "@io is closed" if @io.closed?
+      status = nil
       start_time = Time.now
-      @io.puts @@profiler.command(cmd,@terminator)
-      status = io_read_loop(&block)
-      end_time = Time.now
-      @status = @@profiler.profile(@current_task, cmd,
-                                   start_time, end_time, host, status)
-      @status == 0
+      begin
+        @io.puts @@profiler.command(cmd,@terminator)
+        status = io_read_loop(&block)
+      ensure
+        end_time = Time.now
+        @status = @@profiler.profile(@current_task, cmd,
+                                     start_time, end_time, host, status)
+        @status == 0
+      end
     end
 
     def io_read_loop

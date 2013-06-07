@@ -142,9 +142,15 @@ module Pwrake
       Timer.new(prefix,*args)
     end
 
-    def output_message(message)
+    def stderr_puts(message)
       LOCK.synchronize do
         $stderr.write(message+"\n")
+      end
+    end
+
+    def stdout_puts(message)
+      LOCK.synchronize do
+        $stdout.write(message+"\n")
       end
     end
 
