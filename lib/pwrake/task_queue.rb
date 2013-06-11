@@ -1,12 +1,18 @@
 module Pwrake
 
+  class TaskConditionVariable < ConditionVariable
+    def signal(hint=nil)
+      super
+    end
+  end
+
   class TaskQueue
 
     def initialize(*args)
       @finished = false
       @halt = false
       @mutex = Mutex.new
-      @cv = ConditionVariable.new
+      @cv = TaskConditionVariable.new
       @th_end = []
       @enable_steal = true
       @q = []
@@ -58,13 +64,15 @@ module Pwrake
 
     # enq
     def enq(item,hint=nil)
-      # Log.debug "--- #{TQ}#enq #{item.inspect}"
+      hint = item.suggest_location
+      Log.debug "--- TQ#enq #{item.name} hint=#{hint}"
       if @halt
 	enq_body(item,hint)
       else
         @mutex.synchronize do
 	  enq_body(item,hint)
-	  @cv.signal
+          Log.debug "--- TQ#enq @cv.signal #{item.name} hint=#{hint}"
+	  @cv.signal(hint)
         end
       end
       @reserved_q.keys.each{|th|
@@ -119,14 +127,16 @@ module Pwrake
               Log.debug "--- TQ#deq #{t.inspect}"
               return t
             end
+            #@cv.signal([hint])
             n += 1
           end
         end
-        Thread.pass
+        #Thread.pass
       end
     end
 
     def deq_impl(hint,n)
+      Log.debug "--- TQ#deq_impl #{@q.inspect}"
       @q.shift               # FIFO Queue
     end
 

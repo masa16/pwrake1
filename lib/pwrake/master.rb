@@ -6,6 +6,7 @@ module Pwrake
 
   def current_shell=(a)
     Thread.current[:shell] = a
+    Thread.current[:hint] = a.host
   end
 
   module_function :current_shell, :current_shell=

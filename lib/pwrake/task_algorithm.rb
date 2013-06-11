@@ -22,9 +22,12 @@ module Pwrake
 
       application.start_worker
 
-      th = Thread.new(args){|a| pw_search_tasks(a) }
-
-      #pw_search_tasks(args)
+      if false
+        th = Thread.new(args){|a| pw_search_tasks(a) }
+      else
+        pw_search_tasks(args)
+        th = nil
+      end
 
       if conn = Pwrake.current_shell
         application.thread_loop(conn,self)
@@ -37,7 +40,7 @@ module Pwrake
         end
       end
 
-      th.join
+      th.join if th
     end
 
     def pw_search_tasks(args)
@@ -54,34 +57,8 @@ module Pwrake
       time_start = Time.now
       if shell = Pwrake.current_shell
         shell.current_task = self
-        host = shell.host
+        #host = shell.host
         #log_host(host)
-=begin
-        if host && kind_of? Rake::FileTask
-          a = []
-          @prerequisites.each do |x|
-            preq = nil
-            begin
-              preq = Rake.application[x]
-            rescue
-            end
-            if preq
-              p preq.location
-              if !preq.location.include?(host)
-                if File.file?(preq.name)
-                  a << x
-                end
-              end
-            end
-          end
-          if !a.empty?
-            cmd = "gfrep -q -D #{host} #{a.join ' '}"
-            Log.info(cmd)
-            puts cmd
-            system cmd
-          end
-        end
-=end
       end
 
       @lock.synchronize do
@@ -92,9 +69,10 @@ module Pwrake
       pw_execute(@arg_data) if needed?
       application.postprocess(self) #        <---------
       log_task(time_start)
-      pw_enq_subsequents2           #        <---------
+      #pw_enq_subsequents2           #        <---------
       application.finish_queue.enq(self)
       shell.current_task = nil if shell
+      pw_enq_subsequents3           #        <---------
     end
 
     def log_task(time_start)
@@ -189,12 +167,40 @@ module Pwrake
       end
     end
 
+    def pw_enq_subsequents3
+      @lock.synchronize do
+        #application.task_queue.synchronize(true) do
+          @subsequents.each do |t|        # <<--- competition !!!
+            if t && t.check_prereq_finished(self.name)
+              #if t.actions.empty?
+              #  #invoke_list.push(t)
+              #  t.pw_invoke
+              #else
+                application.task_queue.enq(t)
+              #end
+            end
+          end
+          @already_finished = true        # <<--- competition !!!
+        #end
+      end
+    end
+
+    def check_prereq_finished(preq_name=nil)
+      @unfinished_prereq.delete(preq_name)
+      @unfinished_prereq.empty?
+    end
+
     def check_and_enq(preq_name=nil)
       @unfinished_prereq.delete(preq_name)
       if @unfinished_prereq.empty?
 	Log.debug "--- check_and_enq enq name=#{self.name} "
-	application.task_queue.enq(self)
+        if @actions.empty?
+          return true
+        else
+          application.task_queue.enq(self)
+        end
       end
+      false
     end
 
     # Same as search, but explicitly pass a call chain to detect
@@ -215,7 +221,11 @@ module Pwrake
           @arg_data = task_args
           if @prerequisites.empty?
             @unfinished_prereq = {}
-            application.task_queue.enq(self)
+            #if @actions.empty?           # <--
+            #  pw_invoke
+            #else
+              application.task_queue.enq(self)
+            #end
           else
             search_prerequisites(task_args, new_chain)
           end

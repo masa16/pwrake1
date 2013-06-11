@@ -7,6 +7,74 @@ module Pwrake
   end
 
 
+  class LocalityConditionVariable < ConditionVariable
+    def signal(hints=nil)
+      if hints.nil?
+        super()
+      elsif Array===hints
+        Thread.handle_interrupt(StandardError => :on_blocking) do
+          thread = nil
+          @waiters_mutex.synchronize do
+            @waiters.each do |t,v|
+              if hints.include?(t[:hint])
+                thread = t
+                break
+              end
+            end
+            if thread
+              @waiters.delete(thread)
+            else
+              thread,_ = @waiters.shift
+            end
+          end
+          Log.debug "--- LCV#signal: hints=#{hints.inspect} thread_to_run=#{thread.inspect} @waiters.size=#{@waiters.size}"
+          begin
+            thread.run if thread
+          rescue ThreadError
+            retry # t was already dead?
+          end
+        end
+      else
+        raise ArgumentError,"argument must be an Array"
+      end
+      self
+    end
+
+    def broadcast(hints=nil)
+      if hints.nil?
+        super()
+      elsif Array===hints
+        Thread.handle_interrupt(StandardError => :on_blocking) do
+          threads = []
+          @waiters_mutex.synchronize do
+            hints.each do |h|
+              @waiters.each do |t,v|
+                if t[:hint] == h
+                  threads << t
+                  break
+                end
+              end
+            end
+            threads.each do |t|
+              @waiters.delete(t)
+            end
+          end
+          Log.debug "--- LCV#broadcast: hints=#{hints.inspect} threads_to_run=#{threads.inspect} @waiters.size=#{@waiters.size}"
+          threads.each do |t|
+            begin
+              t.run
+            rescue ThreadError
+            end
+          end
+        end
+      else
+        raise ArgumentError,"argument must be an Array"
+      end
+      self
+    end
+  end
+
+
   class LocalityAwareQueue < TaskQueue
 
     class Throughput
@@ -69,6 +137,7 @@ module Pwrake
 
     def initialize(hosts,opt={})
       super(opt)
+      @cv = LocalityConditionVariable.new
       @hosts = hosts
       @throughput = Throughput.new
       @size = 0
@@ -82,10 +151,10 @@ module Pwrake
     attr_reader :size
 
 
-    def enq_impl(t,hint=nil)
+    def enq_impl(t,hints=nil)
       stored = false
-      if location = t.suggest_location
-        location.each do |h|
+      if hints
+        hints.each do |h|
           if q = @q2[h]
             t.assigned.push(h)
             q.push(t)
@@ -94,9 +163,6 @@ module Pwrake
         end
       end
       if !stored
-        # h = @hosts[rand(@hosts.size)]
-        # @q2[h].push(t)
-        # t.assigned.push(h)
         @q2[nil].push(t)
       end
       @size += 1
@@ -104,21 +170,39 @@ module Pwrake
 
 
     def deq_impl(host,n)
+      if !@q2[nil].empty?
+        t = @q2[nil].shift
+        Log.info "-- deq_nil n=#{n} task=#{t.name} host=#{host}"
+        Log.debug "--- deq_impl\n#{inspect_q}"
+        return t
+      end
+
       if t = deq_locate(host)
         Log.info "-- deq_locate n=#{n} task=#{t.name} host=#{host}"
+        Log.debug "--- deq_impl\n#{inspect_q}"
         return t
       end
 
       if @enable_steal && n > 0
         if t = deq_steal(host)
           Log.info "-- deq_steal n=#{n} task=#{t.name} host=#{host}"
+          Log.debug "--- deq_impl\n#{inspect_q}"
           return t
         end
       end
 
-      #m = 0.001*(2**([n,10].min))
-      ##@cv.signal
-      #@cv.wait(@mutex,m)
+      #hints = []
+      #@q2.each do |h,q|
+      #  if h && !q.empty?
+      #    hints << h
+      #  end
+      #end
+      #@cv.broadcast(hints)
+
+      #@cv.wait(@mutex)
+
+      m = 0.05*(2**([n,10].min))
+      @cv.wait(@mutex,m)
       nil
     end
 
@@ -141,18 +225,31 @@ module Pwrake
       max_num  = 0
       @q2.each do |h,a|
         if !a.empty?
-          d = @throughput.interhost(host,h) * a.size
+          d = a.size
           if d > max_num
             max_host = h
             max_num  = d
           end
         end
       end
-      if max_host
-        deq_locate(max_host)
-      else
-        deq_locate(nil)
-      end
+      Log.info "-- deq_steal max_host=#{max_host} max_num=#{max_num}"
+      deq_locate(max_host)
+    end
+
+    def inspect_q
+      s = ""
+      @q2.each{|h,q|
+        s += " #{h}: size=#{q.size} "
+        case q.size
+        when 0
+          s += "[]\n"
+        when 1
+          s += "[#{q[0].name}]\n"
+        else
+          s += "[#{q[0].name},..]\n"
+        end
+      }
+      s
     end
 
     def size

@@ -36,7 +36,7 @@ module Pwrake
       TLEN.times{ @terminator << CHARS[rand(CHARS.length)] }
     end
 
-    attr_reader :id
+    attr_reader :id, :host
     attr_accessor :current_task
 
     def system_cmd(*arg)
