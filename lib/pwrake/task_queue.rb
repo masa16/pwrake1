@@ -2,7 +2,7 @@ module Pwrake
 
   class TaskConditionVariable < ConditionVariable
     def signal(hint=nil)
-      super
+      super()
     end
   end
 
