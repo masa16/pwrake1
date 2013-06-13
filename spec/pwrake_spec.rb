@@ -85,4 +85,16 @@ describe Helper do
     it { should be_success }
   end
 
+  context "dir=011 FAILD_TARGET=delete" do
+    subject { Helper.new("011","FAILED_TARGET=delete").run }
+    it { should_not be_success }
+    its(:n_files) { should eq 2 }
+  end
+
+  context "dir=011 FAILD_TARGET=rename" do
+    subject { Helper.new("011","FAILED_TARGET=rename").run }
+    it { should_not be_success }
+    its(:n_files) { should eq 3 }
+  end
+
 end
