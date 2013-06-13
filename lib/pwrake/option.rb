@@ -30,6 +30,7 @@ module Pwrake
        'PLOT_PARALLELISM',
        'HALT_QUEUE_WHILE_SEARCH',
        'SHOW_CONF',
+       'FAILED_TARGET',
 
        ['HOSTFILE','HOSTS'],
        ['LOGFILE','LOG',

@@ -136,13 +136,30 @@ module Pwrake
         Log.info "** Execute #{name}"
       end
       application.enhance_with_matching_rule(name) if @actions.empty?
-      @actions.each do |act|
-        case act.arity
-        when 1
-          act.call(self)
-        else
-          act.call(self, args)
+      begin
+        @actions.each do |act|
+          case act.arity
+          when 1
+            act.call(self)
+          else
+            act.call(self, args)
         end
+        end
+      rescue Exception=>e
+        if kind_of?(Rake::FileTask) && File.exist?(name)
+          case application.pwrake_options['FAILED_TARGET']
+          when "rename"
+            dst = name+"._fail_"
+            ::FileUtils.mv(name,dst)
+            msg = "Rename failed target file '#{name}' to '#{dst}'"
+            Log.stderr_puts(msg)
+          when "delete"
+            ::FileUtils.rm(name)
+            msg = "Delete failed target file '#{name}'"
+            Log.stderr_puts(msg)
+          end
+        end
+        raise e
       end
       @executed = true if !@actions.empty?
     end
