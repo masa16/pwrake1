@@ -6,6 +6,23 @@ module Pwrake
     end
   end
 
+  class TaskQueueArray < Array
+    def push(t)
+      lower = -1
+      upper = self.size
+      while lower+1 < upper
+        mid = ((lower + upper) / 2).to_i
+        if self[mid].task_id < t.task_id
+          lower = mid
+        else
+          upper = mid
+        end
+      end
+      self.insert(upper,t)
+    end
+  end
+
+
   class TaskQueue
 
     def initialize(*args)
@@ -15,7 +32,7 @@ module Pwrake
       @cv = TaskConditionVariable.new
       @th_end = []
       @enable_steal = true
-      @q = []
+      @q = TaskQueueArray.new
       @reservation = {}
       @reserved_q = {}
     end

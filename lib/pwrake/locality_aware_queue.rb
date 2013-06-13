@@ -142,8 +142,8 @@ module Pwrake
       @throughput = Throughput.new
       @size = 0
       @q2 = {}
-      @hosts.each{|h| @q2[h]=[]}
-      @q2[nil] = []
+      @hosts.each{|h| @q2[h]=TaskQueueArray.new}
+      @q2[nil] = TaskQueueArray.new
       @enable_steal = !opt['disable_steal']
       @time_prev = Time.now
     end
