@@ -64,7 +64,6 @@ module Pwrake
       @lock.synchronize do
         return if @already_invoked
         @already_invoked = true
-        @task_id = application.task_id_counter
       end
       pw_execute(@arg_data) if needed?
       application.postprocess(self) #        <---------
@@ -208,14 +207,13 @@ module Pwrake
     end
 
     def check_and_enq(preq_name=nil)
-      @unfinished_prereq.delete(preq_name)
-      if @unfinished_prereq.empty?
+      if check_prereq_finished(preq_name)
 	Log.debug "--- check_and_enq enq name=#{self.name} "
-        if @actions.empty?
-          return true
-        else
+        #if @actions.empty?
+        #  return true
+        #else
           application.task_queue.enq(self)
-        end
+        #end
       end
       false
     end
@@ -237,6 +235,7 @@ module Pwrake
           @already_searched = true
           @arg_data = task_args
           if @prerequisites.empty?
+            @task_id = application.task_id_counter
             @unfinished_prereq = {}
             #if @actions.empty?           # <--
             #  pw_invoke
@@ -263,6 +262,7 @@ module Pwrake
           @unfinished_prereq.delete(prereq.name)
         end
       }
+      @task_id = application.task_id_counter
       check_and_enq
     end
 
