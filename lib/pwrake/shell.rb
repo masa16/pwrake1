@@ -97,6 +97,7 @@ module Pwrake
       @lock.synchronize do
         _execute(command){|x| Log.stdout_puts x}
       end
+      @status == 0
     end
 
     def cd_work_dir
@@ -137,7 +138,6 @@ module Pwrake
         end_time = Time.now
         @status = @@profiler.profile(@current_task, cmd,
                                      start_time, end_time, host, status)
-        @status == 0
       end
     end
 
