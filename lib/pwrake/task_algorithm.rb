@@ -146,16 +146,18 @@ module Pwrake
         end
       rescue Exception=>e
         if kind_of?(Rake::FileTask) && File.exist?(name)
-          case application.pwrake_options['FAILED_TARGET']
-          when "rename"
+          opt = application.pwrake_options['FAILED_TARGET']||"rename"
+          case opt
+          when /rename/i
             dst = name+"._fail_"
             ::FileUtils.mv(name,dst)
             msg = "Rename failed target file '#{name}' to '#{dst}'"
             Log.stderr_puts(msg)
-          when "delete"
+          when /delete/i
             ::FileUtils.rm(name)
             msg = "Delete failed target file '#{name}'"
             Log.stderr_puts(msg)
+          when /leave/i
           end
         end
         raise e
