@@ -26,13 +26,21 @@ module Pwrake
   class TaskQueue
 
     def initialize(*args)
+      case Pwrake.application.pwrake_options['QUEUE_PRIORITY']||"DFS"
+      when /dfs/i
+        @array_class = TaskQueueArray
+      when /fifo/i
+        @array_class = Array
+      else
+        raise RuntimeError,"unknown option for QUEUE_PRIORITY"
+      end
       @finished = false
       @halt = false
       @mutex = Mutex.new
       @cv = TaskConditionVariable.new
       @th_end = []
       @enable_steal = true
-      @q = TaskQueueArray.new
+      @q = @array_class.new
       @reservation = {}
       @reserved_q = {}
     end

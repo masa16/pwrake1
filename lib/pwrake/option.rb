@@ -30,7 +30,8 @@ module Pwrake
        'PLOT_PARALLELISM',
        'HALT_QUEUE_WHILE_SEARCH',
        'SHOW_CONF',
-       'FAILED_TARGET',
+       'FAILED_TARGET', # rename(default), delete, leave
+       'QUEUE_PRIORITY', # DFS(default), FIFO,
 
        ['HOSTFILE','HOSTS'],
        ['LOGFILE','LOG',
