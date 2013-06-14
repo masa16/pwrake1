@@ -142,8 +142,9 @@ module Pwrake
       @throughput = Throughput.new
       @size = 0
       @q2 = {}
-      @hosts.each{|h| @q2[h]=TaskQueueArray.new}
-      @q2[nil] = TaskQueueArray.new
+      @hosts.each{|h| @q2[h]=@array_class.new}
+      @q2_remote = @array_class.new
+      @q2_nohint = @array_class.new
       @enable_steal = !opt['disable_steal']
       @time_prev = Time.now
     end
@@ -152,8 +153,10 @@ module Pwrake
 
 
     def enq_impl(t,hints=nil)
-      stored = false
-      if hints
+      if hints.nil? || hints.empty?
+        @q2_nohint.push(t)
+      else
+        stored = false
         hints.each do |h|
           if q = @q2[h]
             t.assigned.push(h)
@@ -161,24 +164,31 @@ module Pwrake
             stored = true
           end
         end
-      end
-      if !stored
-        @q2[nil].push(t)
+        if !stored
+          @q2_remote.push(t)
+        end
       end
       @size += 1
     end
 
 
     def deq_impl(host,n)
-      if !@q2[nil].empty?
-        t = @q2[nil].shift
-        Log.info "-- deq_nil n=#{n} task=#{t.name} host=#{host}"
+      if !@q2_nohint.empty?
+        t = @q2_nohint.shift
+        Log.info "-- deq_nohint n=#{n} task=#{t.name} host=#{host}"
         Log.debug "--- deq_impl\n#{inspect_q}"
         return t
       end
 
       if t = deq_locate(host)
         Log.info "-- deq_locate n=#{n} task=#{t.name} host=#{host}"
+        Log.debug "--- deq_impl\n#{inspect_q}"
+        return t
+      end
+
+      if !@q2_remote.empty?
+        t = @q2_remote.shift
+        Log.info "-- deq_remote n=#{n} task=#{t.name} host=#{host}"
         Log.debug "--- deq_impl\n#{inspect_q}"
         return t
       end
@@ -238,7 +248,7 @@ module Pwrake
 
     def inspect_q
       s = ""
-      @q2.each{|h,q|
+      b = proc{|h,q|
         s += " #{h}: size=#{q.size} "
         case q.size
         when 0
@@ -249,6 +259,9 @@ module Pwrake
           s += "[#{q[0].name},..]\n"
         end
       }
+      b.call("nohint",@q2_nohint)
+      @q2.each(&b)
+      b.call("remote",@q2_remote)
       s
     end
 
@@ -257,11 +270,15 @@ module Pwrake
     end
 
     def clear
+      @q2_nohint.clear
+      @q2_remote.clear
       @q2.each{|h,q| q.clear}
     end
 
     def empty?
-      @q2.values.all?{|q| q.empty?}
+      @q2_nohint.empty? &&
+        @q2_remote.empty? &&
+        @q2.all?{|h,q| q.empty?}
     end
 
     def finish
