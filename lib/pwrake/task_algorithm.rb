@@ -66,7 +66,10 @@ module Pwrake
         @already_invoked = true
       end
       pw_execute(@arg_data) if needed?
-      application.postprocess(self) #        <---------
+      if kind_of?(Rake::FileTask)
+        application.postprocess(self) #        <---------
+        @file_stat = File::Stat.new(name)
+      end
       log_task(time_start)
       #pw_enq_subsequents2           #        <---------
       application.finish_queue.enq(self)
@@ -101,9 +104,8 @@ module Pwrake
         Pwrake.application.count( loc, shell.host )
       end
 
-      if kind_of?(Rake::FileTask)
-        s = File::Stat.new(name)
-        row.concat [s.size, s.mtime, self.location.join('|')]
+      if @file_stat
+        row.concat [@file_stat.size, @file_stat.mtime, self.location.join('|')]
       else
         row.concat ['','','']
       end
@@ -278,8 +280,41 @@ module Pwrake
     end
     private :format_search_flags
 
+    def file_size
+      @file_stat ? @file_stat.size : 0
+    end
 
     def suggest_location
+      if @suggest_location.nil?
+        @suggest_location = []
+        if kind_of?(Rake::FileTask)
+          loc_fsz = Hash.new(0)
+          @prerequisites.each do |preq|
+            t = application[preq]
+            loc = t.location
+            fsz = t.file_size
+            if loc && fsz > 0
+              loc.each do |h|
+                loc_fsz[h] += fsz
+              end
+            end
+          end
+          if !loc_fsz.empty?
+            half_max_fsz = loc_fsz.values.max / 2
+            Log.debug "--- loc_fsz=#{loc_fsz.inspect} half_max_fsz=#{half_max_fsz}"
+            loc_fsz.each do |h,sz|
+              if sz > half_max_fsz
+                @suggest_location << h
+              end
+            end
+            #Log.debug "--- @suggest_location=#{@suggest_location.inspect}"
+          end
+        end
+      end
+      @suggest_location
+    end
+
+    def suggest_location2
       if kind_of?(Rake::FileTask) && preq_name = @prerequisites[0]
         application[preq_name].location
       end
