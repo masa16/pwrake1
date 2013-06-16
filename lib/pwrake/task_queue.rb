@@ -29,7 +29,7 @@ module Pwrake
     end
 
     def index(t)
-      if size < 2
+      if size < 40
         return super(t)
       end
       task_id = t.task_id
