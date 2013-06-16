@@ -8,19 +8,52 @@ module Pwrake
 
   class TaskQueueArray < Array
     def push(t)
-      lower = -1
-      upper = self.size
-      while lower+1 < upper
-        mid = ((lower + upper) / 2).to_i
-        if self[mid].task_id < t.task_id
-          lower = mid
-        else
-          upper = mid
+      task_id = t.task_id
+      if empty? || last.task_id <= task_id
+        super(t)
+      elsif first.task_id > task_id
+        unshift(t)
+      else
+        lower = 0
+        upper = size-1
+        while lower+1 < upper
+          mid = ((lower + upper) / 2).to_i
+          if self[mid].task_id <= task_id
+            lower = mid
+          else
+            upper = mid
+          end
+        end
+        insert(upper,t)
+      end
+    end
+
+    def index(t)
+      if size < 2
+        return super(t)
+      end
+      task_id = t.task_id
+      if last.task_id < task_id || first.task_id > task_id
+        nil
+      else
+        lower = 0
+        upper = size-1
+        while lower+1 < upper
+          mid = ((lower + upper) / 2).to_i
+          if self[mid].task_id < task_id
+            lower = mid
+          else
+            upper = mid
+          end
+        end
+        mid = upper
+        if self[mid].task_id == task_id
+          Log.debug "--- TQA#index=#{mid}, task_id=#{task_id}"
+          mid
         end
       end
-      self.insert(upper,t)
     end
-  end
+  end # TaskQueueArray
 
 
   class TaskQueue

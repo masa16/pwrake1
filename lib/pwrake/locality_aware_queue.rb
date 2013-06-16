@@ -221,7 +221,12 @@ module Pwrake
       q = @q2[host]
       if q && !q.empty?
         t = q.shift
-        t.assigned.each{|x| @q2[x].delete_if{|x| t.equal? x}}
+        t.assigned.each do |h|
+          a = @q2[h]
+          if i = a.index(t)
+            a.delete_at(i)
+          end
+        end
         @size -= 1
         return t
       else
