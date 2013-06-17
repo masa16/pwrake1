@@ -100,7 +100,7 @@ module Pwrake
       row << ((@actions.empty?) ? 0 : 1)
       row << ((@executed) ? 1 : 0)
 
-      if loc && shell
+      if loc && !loc.empty? && shell && !@actions.empty?
         Pwrake.application.count( loc, shell.host )
       end
 
