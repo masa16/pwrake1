@@ -27,12 +27,26 @@ td {
 <body>
 EOL
 
-    def initialize(base,ncore,pattern)
+    @@id = 0
+    @@id_fmt = nil
+
+    def initialize(base,pattern)
       @base = base
+      @pattern = pattern
+
+      @id = @@id
+      @@id += 1
+
       @csv_file = base+'.csv'
       @task_file = base+'.task'
       @html_file = base+'.html'
-      @ncore = ncore
+
+      open(@base+".log","r").each do |s|
+        if /num_cores=(\d+)/ =~ s
+          @ncore = $1.to_i
+          break
+        end
+      end
 
       @sh_table = CSV.read(@csv_file,:headers=>true)
       h = {}
@@ -45,7 +59,6 @@ EOL
       @start_time = Time.parse(@sh_table[0]["start_time"])
       @end_time = Time.parse(@sh_table[-1]["start_time"])
       @elap = @end_time - @start_time
-      @pattern = pattern
       read_elap_each_cmd
       make_cmd_stat
     end
@@ -54,6 +67,15 @@ EOL
     attr_reader :csv_file, :html_file
     attr_reader :cmd_elap, :cmd_stat
     attr_reader :sh_table, :task_table
+    attr_reader :id
+
+    def id_str
+      if @@id_fmt.nil?
+        id_len = Math.log10(@@id).floor + 1
+        @@id_fmt = "%0#{id_len}d"
+      end
+      @@id_fmt % @id
+    end
 
     def read_elap_each_cmd
       @cmd_elap = {}

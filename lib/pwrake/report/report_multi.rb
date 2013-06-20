@@ -3,8 +3,8 @@ module Pwrake
   class ReportMulti
 
     def initialize(list,pattern)
-      @reports = list.map do |file,ncore|
-        Report.new(file,ncore,pattern)
+      @reports = list.map do |base|
+        Report.new(base,pattern)
       end
       @pattern = pattern
       @elap_png = 'elap.png'
@@ -20,10 +20,10 @@ module Pwrake
       html = Report::HTML_HEAD + "<body><h1>Pwrake Statistics</h1>\n"
       html << "<h2>Log files</h2>\n"
       html << "<table>\n"
-      html << "<tr><th>log file</th><th>ncore</th><th>elapsed time(sec)</th><tr>\n"
+      html << "<tr><th>log file</th><th>id</th><th>ncore</th><th>elapsed time(sec)</th><tr>\n"
       @reports.each do |r|
         html << "<tr><td><a href='#{r.html_file}'>#{r.base}</a></td>"
-        html << "<td>#{r.ncore}</td><td>#{r.elap}</td><tr>\n"
+        html << "<td>#{r.id_str}</td><td>#{r.ncore}</td><td>#{r.elap}</td><tr>\n"
       end
       html << "</table>\n"
       html << "<h2>Elapsed time</h2>\n"
@@ -69,7 +69,7 @@ plot #{a}/x,'-' w lp lw 2 ps 2 title 'elapsed time'
         r.cmd_stat.each do |cmd,stat|
           if stat.n > 2
             @stats[cmd] ||= {}
-            @stats[cmd][r.ncore] = stat
+            @stats[cmd]["#{r.id_str}(nc=#{r.ncore})"] = stat
           end
         end
       end
@@ -87,7 +87,7 @@ plot #{a}/x,'-' w lp lw 2 ps 2 title 'elapsed time'
         html << "<p>Statistics of Elapsed time of #{cmd}</p>\n<table>\n"
         html << "<th>ncore</th>"+Stat.html_th
         stats.each do |ncore,s|
-          html << "<tr><td>%i</td>" % ncore + s.html_td + "</tr>\n"
+          html << "<tr><td>#{ncore}</td>" + s.html_td + "</tr>\n"
         end
         html << "</table>\n"
         html << "<img src='./#{@images[cmd]}'/>\n"
@@ -109,7 +109,7 @@ set title '#{cmd}'"
           ncores = stats.keys
           ncores.each_with_index{|n,i|
             a << "'-' w histeps ls #{i+1} title ''"
-            a << "'-' w lines ls #{i+1} title '#{n} cores'"
+            a << "'-' w lines ls #{i+1} title '#{n}'"
           }
           f.puts "plot "+ a.join(',')
 
