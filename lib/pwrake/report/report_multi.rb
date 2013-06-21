@@ -63,18 +63,18 @@ plot #{a}/x,'-' w lp lw 2 ps 2 title 'elapsed time'
 
     def report_histogram
       @images = {}
-      @stats = {}
+      @cmd_rep = {}
 
       @reports.each do |r|
         r.cmd_stat.each do |cmd,stat|
           if stat.n > 2
-            @stats[cmd] ||= {}
-            @stats[cmd]["#{r.id_str}(nc=#{r.ncore})"] = stat
+            @cmd_rep[cmd] ||= {}
+            @cmd_rep[cmd][r.id_str] = r # stat
           end
         end
       end
 
-      @stats.each_key do |cmd|
+      @cmd_rep.each_key do |cmd|
         @images[cmd] = 'hist_'+cmd+'.png'
       end
       histogram_plot
@@ -83,11 +83,12 @@ plot #{a}/x,'-' w lp lw 2 ps 2 title 'elapsed time'
 
     def histogram_html
       html = ""
-      @stats.each do |cmd,stats|
+      @cmd_rep.each do |cmd,cmd_rep|
         html << "<p>Statistics of Elapsed time of #{cmd}</p>\n<table>\n"
-        html << "<th>ncore</th>"+Stat.html_th
-        stats.each do |ncore,s|
-          html << "<tr><td>#{ncore}</td>" + s.html_td + "</tr>\n"
+        html << "<th>id</th><th>ncore</th>"+Stat.html_th
+        cmd_rep.each do |id,r|
+          s = r.cmd_stat[cmd]
+          html << "<tr><td>#{id}</td><td>#{r.ncore}</td>" + s.html_td + "</tr>\n"
         end
         html << "</table>\n"
         html << "<img src='./#{@images[cmd]}'/>\n"
@@ -96,7 +97,7 @@ plot #{a}/x,'-' w lp lw 2 ps 2 title 'elapsed time'
     end
 
     def histogram_plot
-      @stats.each do |cmd,stats|
+      @cmd_rep.each do |cmd,cmd_rep|
         IO.popen("gnuplot","r+") do |f|
           f.puts "
 set terminal png # size 480,360
@@ -106,18 +107,19 @@ set xlabel 'Execution time (sec)'
 set logscale x
 set title '#{cmd}'"
           a = []
-          ncores = stats.keys
+          ncores = cmd_rep.keys
           ncores.each_with_index{|n,i|
             a << "'-' w histeps ls #{i+1} title ''"
             a << "'-' w lines ls #{i+1} title '#{n}'"
           }
           f.puts "plot "+ a.join(',')
 
-          stats.each do |ncore,s|
+          cmd_rep.each do |ncore,r|
+            s = r.cmd_stat[cmd]
             2.times do
               s.hist_each do |x1,x2,y|
                 x = Math.sqrt(x1*x2)
-                f.printf "%f %f\n", x, y
+                f.printf "%f %d\n", x, y
               end
               f.puts "e"
             end
@@ -128,7 +130,7 @@ set title '#{cmd}'"
     end
 
     def histogram_plot2
-      @stats.each do |cmd,stats|
+      @cmd_rep.each do |cmd,cmd_rep|
         IO.popen("gnuplot","r+") do |f|
           f.puts "
 set terminal png # size 480,360
@@ -138,18 +140,18 @@ set palette rgb 33,13,10
 set pm3d
 set ticslevel 0
 unset colorbox
-set yrange [#{stats.size}:0]
+set yrange [#{cmd_rep.size}:0]
 set logscale x
 set title '#{cmd}'"
           a = []
-          ncores = stats.keys.sort
+          ncores = cmd_rep.keys.sort
           ncores.each_with_index{|n,i|
             a << "'-' w lines ls #{i+1} title '#{n} cores'"
           }
           f.puts "splot "+ a.join(',')
 
           ncores.each_with_index do |ncore,i|
-            s = stats[ncore]
+            s = cmd_rep[ncore]
             y = i
             s.hist_each do |x1,x2,z|
               f.printf "%g %g 0\n", x1,y
