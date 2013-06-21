@@ -29,14 +29,15 @@ module Pwrake
 
     def make_logx_histogram(bin)
       @bin = bin # 1.0/10
-      @i_max = (Math.log10(@max)/@bin).round
-      @i_min = (Math.log10(@min)/@bin).round
+      @i_max = (Math.log10(@max)/@bin).floor
+      @i_min = (Math.log10(@min)/@bin).floor
       @hist_min = 10**(@i_min * @bin)
-      @hist_max = 10**(@i_max * @bin)
+      @hist_max = 10**((@i_max+1) * @bin)
       @hist = Array.new(@i_max-@i_min+1,0)
       @data.each do |x|
         i = (Math.log10(x)/@bin-@i_min).floor
-        @hist[i] += 1.0
+        raise "invalid index i=#{i}" if i<0 || i>@i_max-@i_min
+        @hist[i] += 1
       end
     end
 
