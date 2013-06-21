@@ -55,6 +55,11 @@ module Pwrake
     end
   end # TaskQueueArray
 
+  class LifoQueueArray < Array
+    def shift
+      pop
+    end
+  end
 
   class TaskQueue
 
@@ -64,6 +69,8 @@ module Pwrake
         @array_class = TaskQueueArray
       when /fifo/i
         @array_class = Array
+      when /lifo/i
+        @array_class = LifoQueueArray
       else
         raise RuntimeError,"unknown option for QUEUE_PRIORITY"
       end
