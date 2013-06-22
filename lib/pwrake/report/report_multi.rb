@@ -40,9 +40,13 @@ module Pwrake
 
     def plot_elap
       a = @reports.map{|r| r.ncore * r.elap}.min
-      ymin = @reports.map{|r| r.elap}.min
-      ymin = 10**(Math.log10(ymin).floor)
-      ymax = 10**(Math.log10(ymin).floor+2)
+      elaps = @reports.map{|r| r.elap}
+      logmin = Math.log10(elaps.min)
+      logmax = Math.log10(elaps.max)
+      mid = (logmin+logmax)/2
+      wid = (logmax-logmin).ceil*0.5
+      ymin = 10**(mid-wid)
+      ymax = 10**(mid+wid)
       IO.popen("gnuplot","r+") do |f|
         f.puts "
 set terminal png size 640,480
