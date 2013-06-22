@@ -71,10 +71,9 @@ module Pwrake
         @file_stat = File::Stat.new(name)
       end
       log_task(time_start)
-      #pw_enq_subsequents2           #        <---------
       application.finish_queue.enq(self)
       shell.current_task = nil if shell
-      pw_enq_subsequents3           #        <---------
+      pw_enq_subsequents              #        <---------
     end
 
     def log_task(time_start)
@@ -170,38 +169,11 @@ module Pwrake
     def pw_enq_subsequents
       @lock.synchronize do
         @subsequents.each do |t|        # <<--- competition !!!
-          t && t.check_and_enq(self.name)
+          if t && t.check_prereq_finished(self.name)
+            application.task_queue.enq(t)
+          end
         end
         @already_finished = true        # <<--- competition !!!
-      end
-    end
-
-    def pw_enq_subsequents2
-      @lock.synchronize do
-        application.task_queue.synchronize(true) do
-          @subsequents.each do |t|        # <<--- competition !!!
-            t && t.check_and_enq(self.name)
-          end
-          @already_finished = true        # <<--- competition !!!
-        end
-      end
-    end
-
-    def pw_enq_subsequents3
-      @lock.synchronize do
-        #application.task_queue.synchronize(true) do
-          @subsequents.each do |t|        # <<--- competition !!!
-            if t && t.check_prereq_finished(self.name)
-              #if t.actions.empty?
-              #  #invoke_list.push(t)
-              #  t.pw_invoke
-              #else
-                application.task_queue.enq(t)
-              #end
-            end
-          end
-          @already_finished = true        # <<--- competition !!!
-        #end
       end
     end
 
@@ -210,17 +182,6 @@ module Pwrake
       @unfinished_prereq.empty?
     end
 
-    def check_and_enq(preq_name=nil)
-      if check_prereq_finished(preq_name)
-	Log.debug "--- check_and_enq enq name=#{self.name} "
-        #if @actions.empty?
-        #  return true
-        #else
-          application.task_queue.enq(self)
-        #end
-      end
-      false
-    end
 
     # Same as search, but explicitly pass a call chain to detect
     # circular dependencies.
@@ -239,15 +200,14 @@ module Pwrake
           @already_searched = true
           @arg_data = task_args
           if @prerequisites.empty?
-            @task_id = application.task_id_counter
             @unfinished_prereq = {}
-            #if @actions.empty?           # <--
-            #  pw_invoke
-            #else
-              application.task_queue.enq(self)
-            #end
           else
             search_prerequisites(task_args, new_chain)
+          end
+          @task_id = application.task_id_counter
+          #check_and_enq
+          if @unfinished_prereq.empty?
+            application.task_queue.enq(self)
           end
         end
         return false
@@ -266,8 +226,6 @@ module Pwrake
           @unfinished_prereq.delete(prereq.name)
         end
       }
-      @task_id = application.task_id_counter
-      check_and_enq
     end
 
     # Format the trace flags for display.
@@ -284,30 +242,31 @@ module Pwrake
       @file_stat ? @file_stat.size : 0
     end
 
+    def prior?
+      kind_of?(Rake::FileTask) && !@prerequisites.empty?
+    end
+
     def suggest_location
-      if @suggest_location.nil?
+      if prior? && @suggest_location.nil?
         @suggest_location = []
-        if kind_of?(Rake::FileTask)
-          loc_fsz = Hash.new(0)
-          @prerequisites.each do |preq|
-            t = application[preq]
-            loc = t.location
-            fsz = t.file_size
-            if loc && fsz > 0
-              loc.each do |h|
-                loc_fsz[h] += fsz
-              end
+        loc_fsz = Hash.new(0)
+        @prerequisites.each do |preq|
+          t = application[preq]
+          loc = t.location
+          fsz = t.file_size
+          if loc && fsz > 0
+            loc.each do |h|
+              loc_fsz[h] += fsz
             end
           end
-          if !loc_fsz.empty?
-            half_max_fsz = loc_fsz.values.max / 2
-            Log.debug "--- loc_fsz=#{loc_fsz.inspect} half_max_fsz=#{half_max_fsz}"
-            loc_fsz.each do |h,sz|
-              if sz > half_max_fsz
-                @suggest_location << h
-              end
+        end
+        if !loc_fsz.empty?
+          half_max_fsz = loc_fsz.values.max / 2
+          Log.debug "--- loc_fsz=#{loc_fsz.inspect} half_max_fsz=#{half_max_fsz}"
+          loc_fsz.each do |h,sz|
+            if sz > half_max_fsz
+              @suggest_location << h
             end
-            #Log.debug "--- @suggest_location=#{@suggest_location.inspect}"
           end
         end
       end

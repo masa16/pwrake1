@@ -6,7 +6,7 @@ module Pwrake
     end
   end
 
-  class TaskQueueArray < Array
+  class PriorityQueueArray < Array
     def push(t)
       task_id = t.task_id
       if empty? || last.task_id <= task_id
@@ -53,7 +53,7 @@ module Pwrake
         end
       end
     end
-  end # TaskQueueArray
+  end # PriorityQueueArray
 
   class LifoQueueArray < Array
     def shift
@@ -64,9 +64,16 @@ module Pwrake
   class TaskQueue
 
     def initialize(*args)
+      @finished = false
+      @halt = false
+      @mutex = Mutex.new
+      @th_end = []
+      @enable_steal = true
+      @reservation = {}
+      @reserved_q = {}
       case Pwrake.application.pwrake_options['QUEUE_PRIORITY']||"DFS"
       when /dfs/i
-        @array_class = TaskQueueArray
+        @array_class = PriorityQueueArray
       when /fifo/i
         @array_class = Array
       when /lifo/i
@@ -74,15 +81,13 @@ module Pwrake
       else
         raise RuntimeError,"unknown option for QUEUE_PRIORITY"
       end
-      @finished = false
-      @halt = false
-      @mutex = Mutex.new
+      init_queue(*args)
+    end
+
+    def init_queue(*args)
       @cv = TaskConditionVariable.new
-      @th_end = []
-      @enable_steal = true
-      @q = @array_class.new
-      @reservation = {}
-      @reserved_q = {}
+      @q_prior = @array_class.new
+      @q_later = Array.new
     end
 
     attr_reader :mutex
@@ -128,16 +133,14 @@ module Pwrake
     end
 
     # enq
-    def enq(item,hint=nil)
-      hint = item.suggest_location
-      Log.debug "--- TQ#enq #{item.name} hint=#{hint}"
+    def enq(item)
+      Log.debug "--- TQ#enq #{item.name}"
       if @halt
-	enq_body(item,hint)
+	enq_body(item)
       else
         @mutex.synchronize do
-	  enq_body(item,hint)
-          Log.debug "--- TQ#enq @cv.signal #{item.name} hint=#{hint}"
-	  @cv.signal(hint)
+	  enq_body(item)
+	  @cv.signal(item.suggest_location)
         end
       end
       @reserved_q.keys.each{|th|
@@ -146,16 +149,20 @@ module Pwrake
       }
     end
 
-    def enq_body(item,hint)
+    def enq_body(item)
       if th = @reservation[item]
 	@reserved_q[th] = item
       else
-	enq_impl(item,hint)
+	enq_impl(item)
       end
     end
 
-    def enq_impl(item,hint)
-      @q.push(item)          # FIFO Queue
+    def enq_impl(item)
+      if item.prior?
+        @q_prior.push(item)
+      else
+        @q_later.push(item)
+      end
     end
 
 
@@ -202,22 +209,23 @@ module Pwrake
 
     def deq_impl(hint,n)
       Log.debug "--- TQ#deq_impl #{@q.inspect}"
-      @q.shift               # FIFO Queue
+      @q_prior.shift || @q_later.shift
     end
 
     def clear
-      @q.clear
+      @q_prior.clear
+      @q_later.clear
       @reserved_q.clear
     end
 
     def empty?
-      @q.empty? && @reserved_q.empty?
+      @q_prior.empty? && @q_later.empty? && @reserved_q.empty?
     end
 
     def finish
       Log.debug "--- TQ#finish"
       @finished = true
-      @cv.signal
+      @cv.broadcast
     end
 
     def stop

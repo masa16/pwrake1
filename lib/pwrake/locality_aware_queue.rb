@@ -135,37 +135,36 @@ module Pwrake
     end # class Throughput
 
 
-    def initialize(hosts,opt={})
-      super(opt)
+    def init_queue(hosts,opt={})
       @cv = LocalityConditionVariable.new
       @hosts = hosts
       @throughput = Throughput.new
       @size = 0
-      @q2 = {}
-      @hosts.each{|h| @q2[h]=@array_class.new}
-      @q2_remote = @array_class.new
-      @q2_nohint = @array_class.new
+      @q = {}
+      @hosts.each{|h| @q[h]=@array_class.new}
+      @q_remote = @array_class.new
+      @q_later = Array.new
       @enable_steal = !opt['disable_steal']
-      @time_prev = Time.now
     end
 
     attr_reader :size
 
 
-    def enq_impl(t,hints=nil)
+    def enq_impl(t)
+      hints = t.suggest_location
       if hints.nil? || hints.empty?
-        @q2_nohint.push(t)
+        @q_later.push(t)
       else
         stored = false
         hints.each do |h|
-          if q = @q2[h]
+          if q = @q[h]
             t.assigned.push(h)
             q.push(t)
             stored = true
           end
         end
         if !stored
-          @q2_remote.push(t)
+          @q_remote.push(t)
         end
       end
       @size += 1
@@ -173,22 +172,22 @@ module Pwrake
 
 
     def deq_impl(host,n)
-      if !@q2_nohint.empty?
-        t = @q2_nohint.shift
-        Log.info "-- deq_nohint n=#{n} task=#{t.name} host=#{host}"
-        Log.debug "--- deq_impl\n#{inspect_q}"
-        return t
-      end
-
       if t = deq_locate(host)
         Log.info "-- deq_locate n=#{n} task=#{t.name} host=#{host}"
         Log.debug "--- deq_impl\n#{inspect_q}"
         return t
       end
 
-      if !@q2_remote.empty?
-        t = @q2_remote.shift
+      if !@q_remote.empty?
+        t = @q_remote.shift
         Log.info "-- deq_remote n=#{n} task=#{t.name} host=#{host}"
+        Log.debug "--- deq_impl\n#{inspect_q}"
+        return t
+      end
+
+      if !@q_later.empty?
+        t = @q_later.shift
+        Log.info "-- deq_later n=#{n} task=#{t.name} host=#{host}"
         Log.debug "--- deq_impl\n#{inspect_q}"
         return t
       end
@@ -201,16 +200,6 @@ module Pwrake
         end
       end
 
-      #hints = []
-      #@q2.each do |h,q|
-      #  if h && !q.empty?
-      #    hints << h
-      #  end
-      #end
-      #@cv.broadcast(hints)
-
-      #@cv.wait(@mutex)
-
       m = 0.05*(2**([n,10].min))
       @cv.wait(@mutex,m)
       nil
@@ -218,11 +207,11 @@ module Pwrake
 
 
     def deq_locate(host)
-      q = @q2[host]
+      q = @q[host]
       if q && !q.empty?
         t = q.shift
         t.assigned.each do |h|
-          a = @q2[h]
+          a = @q[h]
           if i = a.index(t)
             a.delete_at(i)
           end
@@ -238,7 +227,7 @@ module Pwrake
       # select a task based on many and close
       max_host = nil
       max_num  = 0
-      @q2.each do |h,a|
+      @q.each do |h,a|
         if !a.empty?
           d = a.size
           if d > max_num
@@ -264,9 +253,9 @@ module Pwrake
           s += "[#{q[0].name},..]\n"
         end
       }
-      b.call("nohint",@q2_nohint)
-      @q2.each(&b)
-      b.call("remote",@q2_remote)
+      @q.each(&b)
+      b.call("remote",@q_remote)
+      b.call("later",@q_later)
       s
     end
 
@@ -275,15 +264,17 @@ module Pwrake
     end
 
     def clear
-      @q2_nohint.clear
-      @q2_remote.clear
-      @q2.each{|h,q| q.clear}
+      @q.each{|h,q| q.clear}
+      @q_remote.clear
+      @q_later.clear
+      @reserved_q.clear
     end
 
     def empty?
-      @q2_nohint.empty? &&
-        @q2_remote.empty? &&
-        @q2.all?{|h,q| q.empty?}
+      @q.all?{|h,q| q.empty?} &&
+        @q_remote.empty? &&
+        @q_later.empty? &&
+        @reserved_q.empty?
     end
 
     def finish
