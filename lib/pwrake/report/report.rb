@@ -34,8 +34,8 @@ EOL
       @base = base
       @pattern = pattern
 
+      @@id = @@id.succ
       @id = @@id
-      @@id += 1
 
       @csv_file = base+'.csv'
       @task_file = base+'.task'
@@ -72,7 +72,7 @@ EOL
     def id_str
       if @@id_fmt.nil?
         id_len = Math.log10(@@id).floor + 1
-        @@id_fmt = "%0#{id_len}d"
+        @@id_fmt = "#%0#{id_len}d"
       end
       @@id_fmt % @id
     end
