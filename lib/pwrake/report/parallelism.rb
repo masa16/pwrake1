@@ -49,7 +49,7 @@ module Pwrake
 
       density = exec_density(a)
 
-      base = File.basename(file,".csv")
+      base = file.sub(/\.csv$/,"")
       fpara = base+"_para.dat"
 
       n = a.size
@@ -104,7 +104,7 @@ plot '#{fpara}' w l axis x1y1 title 'parallelism'
 
       density = exec_density(a)
 
-      base = File.basename(file,".csv")
+      base = file.sub(/\.csv$/,"")
       fpara = base+"_para.dat"
       fdens = base+'_dens.dat'
       fimg = base+'.png'
