@@ -101,13 +101,16 @@ module Pwrake
     end
 
     def cd_work_dir
-      _system("cd #{@work_dir}")
+      _system("cd #{@work_dir}") or die
     end
 
     def cd(dir="")
-      _system("cd #{dir}")
+      _system("cd #{dir}") or die
     end
 
+    def die
+      raise "Failed at #{@host}, id=#{@id}, cmd='#{@cmd}'"
+    end
 
     END {
       OPEN_LIST.map do |k,v|
@@ -119,6 +122,7 @@ module Pwrake
     private
 
     def _system(cmd)
+      @cmd = cmd
       raise "@io is closed" if @io.closed?
       @lock.synchronize do
         @io.puts(cmd+"\necho '#{@terminator}':$? ")
@@ -127,7 +131,19 @@ module Pwrake
       end
     end
 
+    def _backquote(cmd)
+      @cmd = cmd
+      raise "@io is closed" if @io.closed?
+      a = []
+      @lock.synchronize do
+        @io.puts(cmd+"\necho '#{@terminator}':$? ")
+        status = io_read_loop{|x| a << x}
+      end
+      a.join("\n")
+    end
+
     def _execute(cmd,quote=nil,&block)
+      @cmd = cmd
       raise "@io is closed" if @io.closed?
       status = nil
       start_time = Time.now
