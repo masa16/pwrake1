@@ -79,7 +79,7 @@ plot #{a}/x,'-' w lp lw 2 ps 2 title 'elapsed time'
       end
 
       @cmd_rep.each_key do |cmd|
-        @images[cmd] = 'hist_'+cmd+'.png'
+        @images[cmd] = 'hist_'+cmd.gsub(/[\/.]/,'_')+'.png'
       end
       histogram_plot
       histogram_html
