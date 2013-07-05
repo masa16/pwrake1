@@ -166,16 +166,22 @@ module Pwrake
       open(system_cmd)
       cd
       if not _system "test -d #{@remote_mountpoint}"
-        _system "mkdir -p #{@remote_mountpoint}"
-        subdir = GfarmPath.subdir
-        if ["/","",nil].include?(subdir)
-          _system "gfarm2fs #{@remote_mountpoint}"
-        else
-          _system "gfarm2fs -o modules=subdir,subdir=#{subdir} #{@remote_mountpoint}"
+        _system "mkdir -p #{@remote_mountpoint}" or die
+      else
+        lines = _backquote("sync; mount")
+        if /#{@remote_mountpoint} (?:type )?(\S+)/om =~ lines
+          _system "sync; fusermount -u #{@remote_mountpoint}"
+          _system "sync"
         end
       end
+      subdir = GfarmPath.subdir
+      if ["/","",nil].include?(subdir)
+        _system "gfarm2fs #{@remote_mountpoint}"
+      else
+        _system "gfarm2fs -o modules=subdir,subdir=#{subdir} #{@remote_mountpoint}"
+      end
       path = ENV['PATH'].gsub( /#{GfarmPath.mountpoint}/, @remote_mountpoint )
-      _system "export PATH=#{path}"
+      _system "export PATH=#{path}" or die
       cd_work_dir
     end
 
