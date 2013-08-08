@@ -1,5 +1,5 @@
 A = 4.times.map do |i|
-  file "A#{i}" do |t|
+  task "A#{i}" do |t|
     sh "sleep 1"
   end.name
 end
