@@ -10,69 +10,82 @@ module Pwrake
       START_TIME.strftime(v).sub("%$","%05d"%Process.pid)
     end
 
+    def parse_opt(s)
+      case s
+      when /false|nil|off/i
+        false
+      when /true|on/i
+        true
+      else
+        s
+      end
+    end
+
     def option_data
       [
-       'DRYRUN',
-       'IGNORE_SYSTEM',
-       'IGNORE_DEPRECATE',
-       'LOAD_SYSTEM',
-       'NOSEARCH',
-       'RAKELIB',
-       'SHOW_PREREQS',
-       'SILENT',
-       'TRACE',
-       'TRACE_RULES',
+        'DRYRUN',
+        'IGNORE_SYSTEM',
+        'IGNORE_DEPRECATE',
+        'LOAD_SYSTEM',
+        'NOSEARCH',
+        'RAKELIB',
+        'SHOW_PREREQS',
+        'SILENT',
+        'TRACE',
+        'TRACE_RULES',
 
-       'FILESYSTEM',
-       'SSH_OPTION',
-       'PASS_ENV',
-       'GNU_TIME',
-       'PLOT_PARALLELISM',
-       'HALT_QUEUE_WHILE_SEARCH',
-       'SHOW_CONF',
-       'FAILED_TARGET', # rename(default), delete, leave
-       'QUEUE_PRIORITY', # DFS(default), FIFO,
+        'FILESYSTEM',
+        'SSH_OPTION',
+        'PASS_ENV',
+        'GNU_TIME',
+        'DEBUG',
+        'PLOT_PARALLELISM',
+        'HALT_QUEUE_WHILE_SEARCH',
+        'SHOW_CONF',
+        'FAILED_TARGET', # rename(default), delete, leave
+        'QUEUE_PRIORITY', # DFS(default), FIFO,
 
-       ['HOSTFILE','HOSTS'],
-       ['LOGFILE','LOG',
-        proc{|v|
-          if v
-            # turn trace option on
-            Rake.application.options.trace = true
-            if v == "" || !v.kind_of?(String)
-              v = "Pwrake%Y%m%d-%H%M%S_%$.log"
+        ['HOSTFILE','HOSTS'],
+        ['LOGFILE','LOG',
+          proc{|v|
+            if v
+              # turn trace option on
+              Rake.application.options.trace = true
+              if v == "" || !v.kind_of?(String)
+                v = "Pwrake%Y%m%d-%H%M%S_%$.log"
+              end
+              format_time_pid(v)
             end
-            format_time_pid(v)
-          end
-        }],
-       ['TASKLOG',
-        proc{|v|
-          if v
-            if v == "" || !v.kind_of?(String)
-              v = "Pwrake%Y%m%d-%H%M%S_%$.task"
+          }],
+        ['TASKLOG',
+          proc{|v|
+            if v
+              if v == "" || !v.kind_of?(String)
+                v = "Pwrake%Y%m%d-%H%M%S_%$.task"
+              end
+              format_time_pid(v)
             end
-            format_time_pid(v)
-          end
-        }],
-       ['PROFILE',
-        proc{|v|
-          if v
-            if v == "" || !v.kind_of?(String)
-              v = "Pwrake%Y%m%d-%H%M%S_%$.csv"
+          }],
+        ['PROFILE',
+          proc{|v|
+            if v
+              if v == "" || !v.kind_of?(String)
+                v = "Pwrake%Y%m%d-%H%M%S_%$.csv"
+              end
+              format_time_pid(v)
             end
-            format_time_pid(v)
-          end
-        }],
-       ['NUM_THREADS', proc{|v| v && v.to_i}],
-       ['DISABLE_AFFINITY', proc{|v| v || ENV['AFFINITY']=='off'}],
-       ['GFARM_BASEDIR', proc{|v| v || '/tmp'}],
-       ['GFARM_PREFIX', proc{|v| v || "pwrake_#{ENV['USER']}"}],
-       ['GFARM_SUBDIR', proc{|v| v || '/'}],
-       #['MASTER_HOSTNAME', proc{|v| v || `hostname -f`.chomp}],
-       ['WORK_DIR',proc{|v|
-          v ||= '$HOME/%CWD_RELATIVE_TO_HOME'
-          v.sub('%CWD_RELATIVE_TO_HOME',cwd_relative_to_home)
-        }]
+          }],
+        ['NUM_THREADS', proc{|v| v && v.to_i}],
+        ['DISABLE_AFFINITY', proc{|v| v || ENV['AFFINITY']=='off'}],
+        ['DISABLE_STEAL', proc{|v| v || ENV['STEAL']=='off'}],
+        ['GFARM_BASEDIR', proc{|v| v || '/tmp'}],
+        ['GFARM_PREFIX', proc{|v| v || "pwrake_#{ENV['USER']}"}],
+        ['GFARM_SUBDIR', proc{|v| v || '/'}],
+        #['MASTER_HOSTNAME', proc{|v| v || `hostname -f`.chomp}],
+        ['WORK_DIR',proc{|v|
+            v ||= '$HOME/%CWD_RELATIVE_TO_HOME'
+            v.sub('%CWD_RELATIVE_TO_HOME',cwd_relative_to_home)
+          }]
       ]
     end
 
@@ -86,7 +99,7 @@ module Pwrake
       init_logger
       Log.info "Options:"
       @opts.each do |k,v|
-	Log.info " #{k} = #{v}"
+	Log.info " #{k} = #{v.inspect}"
       end
       if @opts['SHOW_CONF']
         require "yaml"
@@ -180,11 +193,11 @@ module Pwrake
     #  command_option > ENV > pwrake_conf > DEFAULT_OPTIONS
     def search_opts(keys)
       val = Rake.application.options.send(keys[0].downcase.to_sym)
-      return val if !val.nil?
+      return parse_opt(val) if !val.nil?
       #
       keys.each do |k|
         val = ENV[k.upcase]
-        return val if !val.nil?
+        return parse_opt(val) if !val.nil?
       end
       #
       return nil if !@yaml

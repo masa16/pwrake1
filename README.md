@@ -70,15 +70,17 @@ Or, gem install:
 
 ### pwrake_conf.yaml
 
-* If pwrake_conf.yaml exists at current directory, Pwrake reads options from it.
-* Example:
+* If `pwrake_conf.yaml` exists at current directory, Pwrake reads options from it.
+* Example (in YAML form):
 
         HOSTFILE : hosts
+        LOGFILE : true
+        TASKLOG : true
         PROFILE : true
         GNU_TIME : true
         PLOT_PARALLELISM : true
-        LOGFILE : true
-        TASKLOG : true
+        DISABLE_AFFINITY: true
+        DISABLE_STEAL: true
         FAILED_TARGET : delete
         PASS_ENV :
          - ENV1
@@ -86,22 +88,23 @@ Or, gem install:
 
 * Option list:
 
-        HOSTFILE, HOSTS   default=nil
+        HOSTFILE, HOSTS   default=false
         LOGFILE, LOG      default=none, string=filename, true="Pwrake%Y%m%d-%H%M%S_%$.log"
         TASKLOG           default=none, string=filename, true="Pwrake%Y%m%d-%H%M%S_%$.task"
         PROFILE           default=none, string=filename, true="Pwrake%Y%m%d-%H%M%S_%$.csv"
-        DISABLE_AFFINITY  default=nil
+        DISABLE_AFFINITY  default=false
+        DISABLE_STEAL     default=false
         GFARM_BASEDIR     default="/tmp"
         GFARM_PREFIX      default="pwrake_$USER"
         GFARM_SUBDIR      default='/'
         WORK_DIR          default=$PWD
         FILESYSTEM        default=nil (autodetect)
-        SSH_OPTION        (string) SSH option
-        PASS_ENV          (array) Environment variables passed to SSH
-        GNU_TIME          If true, obtains profiles using GNU time
+        SSH_OPTION        (String) SSH option
+        PASS_ENV          (Array) Environment variables passed to SSH
+        GNU_TIME          If true, obtains PROFILEs using GNU time
         PLOT_PARALLELISM  If true, plot parallelism using GNUPLOT
-        FAILED_TARGET     rename(default) | delete | leave
-        QUEUE_PRIORITY    DFS(default) | FIFO
+        FAILED_TARGET     ( rename(default) | delete | leave ) failed files
+        QUEUE_PRIORITY    ( DFS(default) | FIFO )
 
 ## Note for Gfarm
 
