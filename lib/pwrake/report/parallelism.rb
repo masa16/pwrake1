@@ -94,7 +94,7 @@ plot '#{fpara}' w l axis x1y1 title 'parallelism'
 "
       end
 
-      puts "Parallelism plot: #{base}.png"
+      #puts "Parallelism plot: #{base}.png"
     end
 
 
@@ -160,7 +160,7 @@ plot '#{fpara}' w l axis x1y1 title 'parallelism', '#{fdens}' w l axis x1y2 titl
 "
       end
 
-      puts "Parallelism plot: #{fimg}"
+      #puts "Parallelism plot: #{fimg}"
       fimg
     end
 
@@ -254,7 +254,7 @@ set format y ''
         end
         f.printf "e\n"
       end
-      puts "Parallelism by host: "+fpng
+      #puts "Parallelism by host: "+fpng
       fpng
     end
 

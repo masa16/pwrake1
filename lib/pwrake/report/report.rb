@@ -176,12 +176,13 @@ EOL
       html << "<tr><th>command</th>"
       html << Stat.html_th
       html << "</tr>\n"
-      @cmd_stat.each do |cmd,s|
+      @cmd_stat.each do |cmd,stat|
         html << "<tr><td>#{cmd}</td>"
-        html << s.html_td
+        html << stat.html_td
         html << "</tr>\n"
       end
       html << "<table>\n"
+      html << "<img src='#{histogram_plot}' align='top'/></br>\n"
 
       task_locality
       html << "<h2>Locality statistics</h2>\n"
@@ -253,6 +254,7 @@ EOL
       File.open(@html_file,"w") do |f|
         f.puts html
       end
+      puts "generate "+@html_file
     end
 
     def task_locality
@@ -309,6 +311,45 @@ EOL
         end
       end
     end
+
+    def histogram_plot
+      command_list = []
+      @cmd_stat.each do |cmd,stat|
+        if stat.n > 2
+          command_list << cmd
+        end
+      end
+      hist_image = @base+"_hist.png"
+      IO.popen("gnuplot","r+") do |f|
+        f.puts "
+set terminal png # size 480,360
+set output '#{hist_image}'
+set ylabel 'histogram'
+set xlabel 'Execution time (sec)'
+set logscale x
+set title 'histogram of elapsed time'"
+        a = []
+
+        command_list.each_with_index do |n,i|
+          a << "'-' w histeps ls #{i+1} title ''"
+          a << "'-' w lines ls #{i+1} title '#{n}'"
+        end
+        f.puts "plot "+ a.join(',')
+
+        command_list.each do |cmd|
+          stat = @cmd_stat[cmd]
+          2.times do
+            stat.hist_each do |x1,x2,y|
+              x = Math.sqrt(x1*x2)
+              f.printf "%f %d\n", x, y
+            end
+            f.puts "e"
+          end
+        end
+        hist_image
+      end
+    end
+
 
   end
 end
