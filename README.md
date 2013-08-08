@@ -92,11 +92,6 @@ Or, gem install:
         LOGFILE, LOG      default=none, string=filename, true="Pwrake%Y%m%d-%H%M%S_%$.log"
         TASKLOG           default=none, string=filename, true="Pwrake%Y%m%d-%H%M%S_%$.task"
         PROFILE           default=none, string=filename, true="Pwrake%Y%m%d-%H%M%S_%$.csv"
-        DISABLE_AFFINITY  default=false
-        DISABLE_STEAL     default=false
-        GFARM_BASEDIR     default="/tmp"
-        GFARM_PREFIX      default="pwrake_$USER"
-        GFARM_SUBDIR      default='/'
         WORK_DIR          default=$PWD
         FILESYSTEM        default=nil (autodetect)
         SSH_OPTION        (String) SSH option
@@ -105,6 +100,14 @@ Or, gem install:
         PLOT_PARALLELISM  If true, plot parallelism using GNUPLOT
         FAILED_TARGET     ( rename(default) | delete | leave ) failed files
         QUEUE_PRIORITY    ( DFS(default) | FIFO )
+
+  for Gfarm system:
+
+        DISABLE_AFFINITY  default=false
+        DISABLE_STEAL     default=false
+        GFARM_BASEDIR     default="/tmp"
+        GFARM_PREFIX      default="pwrake_$USER"
+        GFARM_SUBDIR      default='/'
 
 ## Note for Gfarm
 
