@@ -86,22 +86,33 @@ Or, gem install:
 
 * Option list:
 
-        HOSTFILE, HOSTS   default=none
-        LOGFILE, LOG      default=none, true="Pwrake%Y%m%d-%H%M%S_%$.log"
-        TASKLOG           default=none, true="Pwrake%Y%m%d-%H%M%S_%$.task"
-        PROFILE           default=none, true="Pwrake%Y%m%d-%H%M%S_%$.csv"
-        DISABLE_AFFINITY  default=off
+        HOSTFILE, HOSTS   default=nil
+        LOGFILE, LOG      default=none, string=filename, true="Pwrake%Y%m%d-%H%M%S_%$.log"
+        TASKLOG           default=none, string=filename, true="Pwrake%Y%m%d-%H%M%S_%$.task"
+        PROFILE           default=none, string=filename, true="Pwrake%Y%m%d-%H%M%S_%$.csv"
+        DISABLE_AFFINITY  default=nil
         GFARM_BASEDIR     default="/tmp"
         GFARM_PREFIX      default="pwrake_$USER"
         GFARM_SUBDIR      default='/'
         WORK_DIR          default=$PWD
-        FILESYSTEM        (autodetect)
-        SSH_OPTION        SSH option
-        PASS_ENV          Environment variables passed to SSH
-        GNU_TIME          Obtains profiles using GNU time
-        PLOT_PARALLELISM  Plot parallelism using GNUPLOT
-        FAILED_TARGET     rename(default), delete, leave
-        QUEUE_PRIORITY    DFS(default), FIFO
+        FILESYSTEM        default=nil (autodetect)
+        SSH_OPTION        (string) SSH option
+        PASS_ENV          (array) Environment variables passed to SSH
+        GNU_TIME          If true, obtains profiles using GNU time
+        PLOT_PARALLELISM  If true, plot parallelism using GNUPLOT
+        FAILED_TARGET     rename(default) | delete | leave
+        QUEUE_PRIORITY    DFS(default) | FIFO
+
+## Note for Gfarm
+
+* `gfwhere-pipe` command is required for file-affinity scheduling.
+
+        wget https://gist.github.com/masa16/5787473/raw/6df5deeb80a4cea6b9d1d1ce01f390f65d650717/gfwhere-pipe.patch
+        cd gfarm-2.5.8.1
+        patch -p1 < ../gfwhere-pipe.patch
+        ./configure --prefix=...
+        make
+        make install
 
 ## Tested Platform
 
