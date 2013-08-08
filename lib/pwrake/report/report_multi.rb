@@ -4,7 +4,9 @@ module Pwrake
 
     def initialize(list,pattern)
       @reports = list.map do |base|
-        Report.new(base,pattern)
+        r = Report.new(base,pattern)
+        puts r.base+" elap=#{r.elap}"
+        r
       end
       @pattern = pattern
       @elap_png = 'elap.png'
