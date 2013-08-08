@@ -12,7 +12,6 @@ module Pwrake
       if hints.nil?
         super()
       elsif Array===hints
-        Thread.handle_interrupt(StandardError => :on_blocking) do
           thread = nil
           @waiters_mutex.synchronize do
             @waiters.each do |t,v|
@@ -33,7 +32,6 @@ module Pwrake
           rescue ThreadError
             retry # t was already dead?
           end
-        end
       else
         raise ArgumentError,"argument must be an Array"
       end
@@ -44,7 +42,6 @@ module Pwrake
       if hints.nil?
         super()
       elsif Array===hints
-        Thread.handle_interrupt(StandardError => :on_blocking) do
           threads = []
           @waiters_mutex.synchronize do
             hints.each do |h|
@@ -66,7 +63,6 @@ module Pwrake
             rescue ThreadError
             end
           end
-        end
       else
         raise ArgumentError,"argument must be an Array"
       end
@@ -135,7 +131,7 @@ module Pwrake
     end # class Throughput
 
 
-    def init_queue(hosts,opt={})
+    def init_queue(hosts)
       @cv = LocalityConditionVariable.new
       @hosts = hosts
       @throughput = Throughput.new
@@ -144,7 +140,10 @@ module Pwrake
       @hosts.each{|h| @q[h]=@array_class.new}
       @q_remote = @array_class.new
       @q_later = Array.new
-      @enable_steal = !opt['disable_steal']
+      @enable_steal = !Pwrake.application.pwrake_options['DISABLE_STEAL']
+      @steal_wait = (Pwrake.application.pwrake_options['STEAL_WAIT'] || 0).to_i
+      @steal_wait_max = (Pwrake.application.pwrake_options['STEAL_WAIT_MAX'] || 10).to_i
+      Log.info("-- @steal_wait=#{@steal_wait} @steal_wait_max=#{@steal_wait_max}")
     end
 
     attr_reader :size
@@ -200,7 +199,7 @@ module Pwrake
         end
       end
 
-      m = 0.05*(2**([n,10].min))
+      m = [@steal_wait*(2**n), @steal_wait_max].min
       @cv.wait(@mutex,m)
       nil
     end

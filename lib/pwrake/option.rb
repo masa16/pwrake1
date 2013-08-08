@@ -44,6 +44,8 @@ module Pwrake
         'SHOW_CONF',
         'FAILED_TARGET', # rename(default), delete, leave
         'QUEUE_PRIORITY', # DFS(default), FIFO,
+        'STEAL_WAIT',
+        'STEAL_WAIT_MAX',
 
         ['HOSTFILE','HOSTS'],
         ['LOGFILE','LOG',
@@ -363,7 +365,6 @@ module Pwrake
         @shell_class = GfarmShell
         @shell_opt.merge!({
           :work_dir  => Dir.pwd,
-          :disable_steal => @opts['DISABLE_STEAL'],
           :single_mp => @opts['GFARM_SINGLE_MP'],
           :basedir   => @opts['GFARM_BASEDIR'],
           :prefix    => @opts['GFARM_PREFIX']
