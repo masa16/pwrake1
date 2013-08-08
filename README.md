@@ -3,9 +3,9 @@
 Parallel workflow extension for Rake
 * Author: Masahiro Tanaka
 
-([日本語README](https://github.com/masa16/pwrake/wiki/Pwrake.ja)), 
+([日本語README](https://github.com/masa16/pwrake/wiki/Pwrake.ja)),
 ([GitHub Repository](https://github.com/masa16/pwrake))
- 
+
 ## Features
 
 * Parallelize all tasks; no need to modify Rakefile, no need to use `multitask`.
@@ -50,14 +50,67 @@ Or, gem install:
 
         $ pwrake --hostfile=hosts
 
+## Options
+
+### Command line option
+
+        -F, --hostfile FILE              [Pw] Read hostnames from FILE
+        -j, --jobs [N]                   [Pw] Number of threads at localhost (default: # of processors)
+        -L, --logfile [FILE]             [Pw] Write log to FILE
+            --ssh-opt, --ssh-option OPTION
+                                         [Pw] Option passed to SSH
+            --filesystem FILESYSTEM      [Pw] Specify FILESYSTEM (nfs|gfarm)
+            --gfarm                      [Pw] FILESYSTEM=gfarm
+        -A, --disable-affinity           [Pw] Turn OFF affinity (AFFINITY=off)
+        -S, --disable-steal              [Pw] Turn OFF task steal
+        -d, --debug                      [Pw] Output Debug messages
+            --pwrake-conf [FILE]         [Pw] Pwrake configuation file in YAML
+            --show-conf, --show-config   [Pw] Show Pwrake configuration options
+        -h, -H, --help                   Display this help message.
+
+### pwrake_conf.yaml
+
+* If pwrake_conf.yaml exists at current directory, Pwrake reads options from it.
+* Example:
+
+        HOSTFILE : hosts
+        PROFILE : true
+        GNU_TIME : true
+        PLOT_PARALLELISM : true
+        LOGFILE : true
+        TASKLOG : true
+        FAILED_TARGET : delete
+        PASS_ENV :
+         - ENV1
+         - ENV2
+
+* Option list:
+
+        HOSTFILE, HOSTS   default=none
+        LOGFILE, LOG      default=none, true="Pwrake%Y%m%d-%H%M%S_%$.log"
+        TASKLOG           default=none, true="Pwrake%Y%m%d-%H%M%S_%$.task"
+        PROFILE           default=none, true="Pwrake%Y%m%d-%H%M%S_%$.csv"
+        DISABLE_AFFINITY  default=off
+        GFARM_BASEDIR     default="/tmp"
+        GFARM_PREFIX      default="pwrake_$USER"
+        GFARM_SUBDIR      default='/'
+        WORK_DIR          default=$PWD
+        FILESYSTEM        (autodetect)
+        SSH_OPTION        SSH option
+        PASS_ENV          Environment variables passed to SSH
+        GNU_TIME          Obtains profiles using GNU time
+        PLOT_PARALLELISM  Plot parallelism using GNUPLOT
+        FAILED_TARGET     rename(default), delete, leave
+        QUEUE_PRIORITY    DFS(default), FIFO
+
 ## Tested Platform
 
-* Ruby 1.9.3, 2.0.0-preview1
-* Rake 0.9.2.2
-* Fedora 16 / Debian 5.0.7
+* Ruby 2.0.0
+* Rake 0.9.6
+* CentOS 6.4
 
 ## Acknowledgment
 
-This work is supported by 
+This work is supported by
 * JST CREST, research area: "Development of System Software Technologies for Post-Peta Scale High Performance Computing," and
 * MEXT Promotion of Research for Next Generation IT Infrastructure "Resources Linkage for e-Science (RENKEI)."
