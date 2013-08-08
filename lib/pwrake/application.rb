@@ -171,7 +171,7 @@ module Pwrake
         "[Pw] Show Pwrake configuration options",
         lambda {|value| options.show_conf = true }
        ],
-       ['--report LOG', "Report profile HTML from LOG and exit.",
+       ['--report LOG', "[Pw] Report profile HTML from LOG and exit.",
          lambda { |value|
            require 'pwrake/report'
            Report.new(File.basename(value.sub(/\.[^.]+$/,"")),[]).report_html

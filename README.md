@@ -66,7 +66,7 @@ Or, gem install:
         -d, --debug                      [Pw] Output Debug messages
             --pwrake-conf [FILE]         [Pw] Pwrake configuation file in YAML
             --show-conf, --show-config   [Pw] Show Pwrake configuration options
-        -h, -H, --help                   Display this help message.
+            --report LOG                 [Pw] Report profile HTML from LOG and exit.
 
 ### pwrake_conf.yaml
 
@@ -105,6 +105,9 @@ Or, gem install:
 
         DISABLE_AFFINITY  default=false
         DISABLE_STEAL     default=false
+        STEAL_WAIT        default=0 (sec)
+        STEAL_WAIT_MAX    default=10 (sec)
+         : Wait min(STEAL_WAIT*2**n, STEAL_WAIT_MAX) sec for task steal.
         GFARM_BASEDIR     default="/tmp"
         GFARM_PREFIX      default="pwrake_$USER"
         GFARM_SUBDIR      default='/'
