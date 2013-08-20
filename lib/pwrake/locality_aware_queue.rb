@@ -143,7 +143,7 @@ module Pwrake
       @enable_steal = !Pwrake.application.pwrake_options['DISABLE_STEAL']
       @steal_wait = (Pwrake.application.pwrake_options['STEAL_WAIT'] || 0).to_i
       @steal_wait_max = (Pwrake.application.pwrake_options['STEAL_WAIT_MAX'] || 10).to_i
-      Log.info("-- @steal_wait=#{@steal_wait} @steal_wait_max=#{@steal_wait_max}")
+      Log.info("-- @enable_steal=#{@enable_steal.inspect} @steal_wait=#{@steal_wait} @steal_wait_max=#{@steal_wait_max}")
     end
 
     attr_reader :size
