@@ -41,6 +41,7 @@ module Pwrake
         'DEBUG',
         'PLOT_PARALLELISM',
         'HALT_QUEUE_WHILE_SEARCH',
+        'THREAD_CREATE_INTERVAL',
         'SHOW_CONF',
         'FAILED_TARGET', # rename(default), delete, leave
         'QUEUE_PRIORITY', # DFS(default), FIFO,
@@ -142,7 +143,9 @@ module Pwrake
         @yaml = open(@pwrake_conf){|f| YAML.load(f) }
       end
 
-      @opts = {'PWRAKE_CONF' => @pwrake_conf}
+      @opts = {'PWRAKE_CONF' => @pwrake_conf,
+        'THREAD_CREATE_INTERVAL' => 0.001,
+      }
 
       option_data.each do |a|
         prc = nil

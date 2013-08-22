@@ -54,10 +54,15 @@ module Pwrake
     def start_threads
       Thread.abort_on_exception = true
       @threads = []
+      t_intvl = Pwrake.application.pwrake_options['THREAD_CREATE_INTERVAL']
       @shell_set.each do |c|
+        tc0 = Time.now
         @threads << Thread.new(c) do |conn|
           Pwrake.current_shell = conn
+          t0 = Time.now
           conn.start
+          t = Time.now - t0
+          Log.info "-- worker[#{conn.id}] connect to #{conn.host}: %.3f sec" % t
           begin
             thread_loop(conn)
           ensure
@@ -65,6 +70,8 @@ module Pwrake
             conn.finish
           end
         end
+        t_sleep = t_intvl - (Time.now - tc0)
+        sleep t_sleep if t_sleep > 0
       end
     end
 
