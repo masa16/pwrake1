@@ -212,7 +212,7 @@ plot '#{fpara}' w l axis x1y1 title 'parallelism', '#{fdens}' w l axis x1y2 titl
     def plot_parallelizm_by_host(csvtable,base)
       fpng = base+"_para_host.png"
       data = read_time_by_host_from_csv(csvtable)
-      #return if data.size < 4
+      return fpng if data.size == 0
 
       grid = []
       hosts = data.keys.sort
@@ -248,13 +248,11 @@ set format y ''
           end
           f.printf "\n"
         end
-        j = grid.size
-        grid[j-1].each do |x|
+        grid.last.each do |x|
           f.printf "%g %g %d\n", j, x[0], x[1]
         end
         f.printf "e\n"
       end
-      #puts "Parallelism by host: "+fpng
       fpng
     end
 

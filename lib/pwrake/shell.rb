@@ -126,6 +126,7 @@ module Pwrake
       raise "@io is closed" if @io.closed?
       @lock.synchronize do
         @io.puts(cmd+"\necho '#{@terminator}':$? ")
+        @io.flush
         status = io_read_loop{}
         Integer(status) == 0
       end

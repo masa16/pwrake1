@@ -85,7 +85,8 @@ module Pwrake
       t.strftime("%F %T.%L")
     end
 
-    def profile(task, cmd, start_time, end_time, host="", status="")
+    def profile(task, cmd, start_time, end_time, host="", status=nil)
+      status = "" if status.nil?
       id = @lock.synchronize do
         id = @id
         @id += 1
