@@ -75,12 +75,13 @@ module Pwrake
       when /dfs/i
         @array_class = PriorityQueueArray
       when /fifo/i
-        @array_class = Array
+        @array_class = Array # Fifo
       when /lifo/i
         @array_class = LifoQueueArray
       else
         raise RuntimeError,"unknown option for QUEUE_PRIORITY"
       end
+      Log.debug "--- TQ#initialize @array_class=#{@array_class.inspect}"
       init_queue(*args)
     end
 
@@ -135,6 +136,7 @@ module Pwrake
     # enq
     def enq(item)
       Log.debug "--- TQ#enq #{item.name}"
+      t0 = Time.now
       if @halt
 	enq_body(item)
       else
@@ -147,6 +149,7 @@ module Pwrake
         Log.debug "--- run #{th}";
         th.run
       }
+      Log.debug "--- TQ#enq #{item.name} enq_time=#{Time.now-t0}"
     end
 
     def enq_body(item)
@@ -171,6 +174,7 @@ module Pwrake
       n = 0
       loop do
         @mutex.synchronize do
+          t0 = Time.now
           if @th_end.first == Thread.current
             @th_end.shift
             return false
@@ -196,7 +200,8 @@ module Pwrake
 
           else
             if t = deq_impl(hint,n)
-              Log.debug "--- TQ#deq #{t.inspect}"
+              t_inspect = t.inspect[0..1000]
+              Log.debug "--- TQ#deq #{t_inspect} deq_time=#{Time.now-t0}"
               return t
             end
             #@cv.signal([hint])

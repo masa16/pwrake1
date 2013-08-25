@@ -28,6 +28,7 @@ module Pwrake
         pw_search_tasks(args)
         th = nil
       end
+      Log.info "-- ps:\n"+`ps xwv|egrep 'PID|ruby'`
 
       if conn = Pwrake.current_shell
         application.thread_loop(conn,self)
@@ -57,8 +58,6 @@ module Pwrake
       time_start = Time.now
       if shell = Pwrake.current_shell
         shell.current_task = self
-        #host = shell.host
-        #log_host(host)
       end
 
       @lock.synchronize do
@@ -68,12 +67,16 @@ module Pwrake
       pw_execute(@arg_data) if needed?
       if kind_of?(Rake::FileTask)
         application.postprocess(self) #        <---------
-        @file_stat = File::Stat.new(name)
+        if File.exist?(name)
+          @file_stat = File::Stat.new(name)
+        end
       end
       log_task(time_start)
+      t = Time.now
       application.finish_queue.enq(self)
       shell.current_task = nil if shell
       pw_enq_subsequents              #        <---------
+      Log.debug "--- pw_invoke (#{name}) postprocess time=#{Time.now-t} sec"
     end
 
     def log_task(time_start)
@@ -143,7 +146,7 @@ module Pwrake
             act.call(self)
           else
             act.call(self, args)
-        end
+          end
         end
       rescue Exception=>e
         if kind_of?(Rake::FileTask) && File.exist?(name)
@@ -168,12 +171,14 @@ module Pwrake
 
     def pw_enq_subsequents
       @lock.synchronize do
+        t = Time.now
         @subsequents.each do |t|        # <<--- competition !!!
           if t && t.check_prereq_finished(self.name)
             application.task_queue.enq(t)
           end
         end
         @already_finished = true        # <<--- competition !!!
+        Log.debug "--- pw_enq_subseq (#{name}) time=#{Time.now-t} sec"
       end
     end
 
@@ -219,7 +224,8 @@ module Pwrake
 
     # Search all the prerequisites of a task.
     def search_prerequisites(task_args, invocation_chain) # :nodoc:
-      @unfinished_prereq = @prerequisites.dup
+      @unfinished_prereq = {}
+      @prerequisites.each{|t| @unfinished_prereq[t]=true}
       prerequisite_tasks.each { |prereq|
         #prereq_args = task_args.new_scope(prereq.arg_names) # in vain
         if prereq.search_with_call_chain(self, task_args, invocation_chain)

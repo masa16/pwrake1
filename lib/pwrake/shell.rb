@@ -19,6 +19,9 @@ module Pwrake
     @@current_id = 0
     @@profiler = Profiler.new
 
+#    @@global_lock = Mutex.new
+#    @@last_exec_time = Time.now
+
     def self.profiler
       @@profiler
     end
@@ -32,6 +35,7 @@ module Pwrake
       @work_dir = @option[:work_dir] || Dir.pwd
       @pass_env = @option[:pass_env]
       @ssh_opt = @option[:ssh_opt]
+#      @ssh_min_exec_interval = Pwrake.application.pwrake_options['SHELL_MIN_EXEC_INTERVAL'].to_f
       @terminator = ""
       TLEN.times{ @terminator << CHARS[rand(CHARS.length)] }
     end
@@ -147,6 +151,20 @@ module Pwrake
       @cmd = cmd
       raise "@io is closed" if @io.closed?
       status = nil
+
+#      t0 = Time.now
+#      @@global_lock.synchronize do
+#        t = Time.now - @@last_exec_time
+#        if t < @ssh_min_exec_interval
+#          sleep @ssh_min_exec_interval-t
+#        end
+#        @@last_exec_time = Time.now
+#      end
+#      t = Time.now-t0
+#      #if t>0.001
+#        Log.info "-- locktime %.6f"%t
+#      #end
+
       start_time = Time.now
       begin
         @io.puts @@profiler.command(cmd,@terminator)

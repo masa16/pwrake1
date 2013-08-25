@@ -95,3 +95,4 @@ module Rake
     private(*Pwrake::FileUtils.instance_methods(false))
   end
 end
+self.extend Rake::DSL

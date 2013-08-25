@@ -248,6 +248,7 @@ set format y ''
           end
           f.printf "\n"
         end
+        j = grid.size
         grid.last.each do |x|
           f.printf "%g %g %d\n", j, x[0], x[1]
         end

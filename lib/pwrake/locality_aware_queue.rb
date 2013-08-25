@@ -143,7 +143,9 @@ module Pwrake
       @enable_steal = !Pwrake.application.pwrake_options['DISABLE_STEAL']
       @steal_wait = (Pwrake.application.pwrake_options['STEAL_WAIT'] || 0).to_i
       @steal_wait_max = (Pwrake.application.pwrake_options['STEAL_WAIT_MAX'] || 10).to_i
-      Log.info("-- @enable_steal=#{@enable_steal.inspect} @steal_wait=#{@steal_wait} @steal_wait_max=#{@steal_wait_max}")
+      @steal_wait_after_enq = (Pwrake.application.pwrake_options['STEAL_WAIT_AFTER_ENQ'] || 0.1).to_f
+      @last_enq_time = Time.now
+      Log.info("-- @enable_steal=#{@enable_steal.inspect} @steal_wait=#{@steal_wait} @steal_wait_max=#{@steal_wait_max} @steal_wait_after_enq={@steal_wait_after_enq}")
     end
 
     attr_reader :size
@@ -166,6 +168,7 @@ module Pwrake
           @q_remote.push(t)
         end
       end
+      @last_enq_time = Time.now
       @size += 1
     end
 
@@ -191,7 +194,7 @@ module Pwrake
         return t
       end
 
-      if @enable_steal && n > 0
+      if @enable_steal && n > 0 && Time.now-@last_enq_time > @steal_wait_after_enq
         if t = deq_steal(host)
           Log.info "-- deq_steal n=#{n} task=#{t.name} host=#{host}"
           Log.debug "--- deq_impl\n#{inspect_q}"
