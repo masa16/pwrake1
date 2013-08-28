@@ -315,20 +315,28 @@ module Pwrake
         require "socket"
         tmplist = []
         File.open(@hostfile) do |f|
+          re = /\[\[([\w\d]+)-([\w\d]+)\]\]/o
           while l = f.gets
             l = $1 if /^([^#]*)#/ =~ l
             host, ncore, group = l.split
             if host
-              begin
-                host = Socket.gethostbyname(host)[0]
-              rescue
-                Log.info "-- FQDN not resoved : #{host}"
+              if re =~ host
+                hosts = ($1..$2).map{|i| host.sub(re,i)}
+              else
+                hosts = [host]
               end
-              ncore = (ncore || 1).to_i
-              group = (group || 0).to_i
-              tmplist << ([host] * ncore.to_i)
-              @host_group[group] ||= []
-              @host_group[group] << host
+              hosts.each do |host|
+                begin
+                  host = Socket.gethostbyname(host)[0]
+                rescue
+                  Log.info "-- FQDN not resoved : #{host}"
+                end
+                ncore = (ncore || 1).to_i
+                group = (group || 0).to_i
+                tmplist << ([host] * ncore.to_i)
+                @host_group[group] ||= []
+                @host_group[group] << host
+              end
             end
           end
         end
