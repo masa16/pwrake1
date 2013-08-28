@@ -132,7 +132,7 @@ module Pwrake
         @io.puts(cmd+"\necho '#{@terminator}':$? ")
         @io.flush
         status = io_read_loop{}
-        Integer(status) == 0
+        Integer(status||1) == 0
       end
     end
 
