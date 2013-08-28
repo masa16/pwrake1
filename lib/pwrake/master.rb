@@ -34,7 +34,6 @@ module Pwrake
       timer = Timer.new("start_worker")
       @finish_queue = Queue.new
       @task_queue = @queue_class.new(@core_list)
-      @task_queue.enable_steal = !Rake.application.options.disable_steal
       @shell_set = []
       @core_list.each_with_index do |h,i|
         @shell_set << @shell_class.new(h,@shell_opt)
