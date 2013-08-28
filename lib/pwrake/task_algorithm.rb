@@ -33,11 +33,25 @@ module Pwrake
       if conn = Pwrake.current_shell
         application.thread_loop(conn,self)
       else
-        while true
-          t = application.finish_queue.deq
-          break if t==self
-          #application.postprocess(t)   #        <---------
-          #t.pw_enq_subsequents         #        <---------
+        if fname = application.pwrake_options['GC_PROFILE']
+          File.open(fname,"w") do |f|
+            gc_count = 0
+            while true
+              t = application.finish_queue.deq
+              if GC.count > gc_count
+                f.write Log.fmt_time(Time.now)+" "
+                f.write(GC::Profiler.result)
+                GC::Profiler.clear
+                gc_count = GC.count
+              end
+              break if t==self
+            end
+          end
+        else
+          while true
+            t = application.finish_queue.deq
+            break if t==self
+          end
         end
       end
 

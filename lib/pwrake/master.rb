@@ -49,7 +49,6 @@ module Pwrake
       @threads.each{|t| t.join } if @threads
       @counter.print if @counter
       finish_option   # Pwrake::Option
-      Log.debug "--- GC::Profiler.total_time = #{GC::Profiler.total_time}"
     end
 
     def start_threads

@@ -78,6 +78,15 @@ module Pwrake
               format_time_pid(v)
             end
           }],
+        ['GC_PROFILE',
+         proc{|v|
+            if v
+              if v == "" || !v.kind_of?(String)
+                v = "Pwrake%Y%m%d-%H%M%S_%$.gcprof"
+              end
+              format_time_pid(v)
+            end
+         }],
         ['NUM_THREADS', proc{|v| v && v.to_i}],
         ['DISABLE_AFFINITY', proc{|v| v || ENV['AFFINITY']=='off'}],
         ['DISABLE_STEAL', proc{|v| v || ENV['STEAL']=='off'}],
@@ -108,6 +117,9 @@ module Pwrake
         require "yaml"
         YAML.dump(@opts,$stdout)
         exit
+      end
+      if @opts['GC_PROFILE']
+        GC::Profiler.enable
       end
       @counter = Counter.new
     end
@@ -181,7 +193,6 @@ module Pwrake
        'SILENT',
        'TRACE',
        'TRACE_RULES']
-      Rake.verbose(true) if Rake.application.options.trace
       Rake.verbose(false) if Rake.application.options.silent
     end
 
@@ -263,7 +274,7 @@ module Pwrake
     def init_logger
       if Rake.application.options.debug
         Log.level = Log::DEBUG
-      elsif Rake.verbose.kind_of? TrueClass
+      elsif Rake.application.options.trace
         Log.level = Log::INFO
       else
         Log.level = Log::WARN
@@ -275,8 +286,6 @@ module Pwrake
           mkdir_p logdir
         end
         Log.open(@logfile)
-        # turn trace option on
-        #Rake.application.options.trace = true
       else
         Log.open($stdout)
       end
