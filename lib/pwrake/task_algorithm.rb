@@ -94,20 +94,28 @@ module Pwrake
     end
 
     def log_task(time_start)
-      return if !application.task_logger
       time_end = Time.now
+
+      loc = suggest_location()
+      shell = Pwrake.current_shell
+
+      if loc && !loc.empty? && shell && !@actions.empty?
+        Pwrake.application.count( loc, shell.host )
+      end
+      return if !application.task_logger
+
       row = [ @task_id, name,
         time_start, time_end, time_end-time_start,
         @prerequisites.join('|')
       ]
 
-      if loc = suggest_location()
+      if loc
         row << loc.join('|')
       else
         row << ''
       end
 
-      if shell = Pwrake.current_shell
+      if shell
         row.concat [shell.host, shell.id]
       else
         row.concat ['','']
@@ -115,10 +123,6 @@ module Pwrake
 
       row << ((@actions.empty?) ? 0 : 1)
       row << ((@executed) ? 1 : 0)
-
-      if loc && !loc.empty? && shell && !@actions.empty?
-        Pwrake.application.count( loc, shell.host )
-      end
 
       if @file_stat
         row.concat [@file_stat.size, @file_stat.mtime, self.location.join('|')]
