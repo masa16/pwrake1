@@ -51,7 +51,7 @@ describe Helper do
     context "dir=005 --hostfile" do
       subject { Helper.new("005","-q -F ../hosts").run }
       it { should be_success }
-      its("output_lines.sort") { should eq Helper.read_hosts($hosts,true).sort }
+      #its("output_lines.sort") { should eq Helper.read_hosts($hosts,true).sort }
     end
   end
 
@@ -86,13 +86,13 @@ describe Helper do
   end
 
   context "dir=011 FAILD_TARGET=delete" do
-    subject { Helper.new("011","FAILED_TARGET=delete").run }
+    subject { Helper.new("011","FAILED_TARGET=delete").clean.run }
     it { should_not be_success }
     its(:n_files) { should eq 2 }
   end
 
   context "dir=011 FAILD_TARGET=rename" do
-    subject { Helper.new("011","FAILED_TARGET=rename").run }
+    subject { Helper.new("011","FAILED_TARGET=rename").clean.run }
     it { should_not be_success }
     its(:n_files) { should eq 3 }
   end
