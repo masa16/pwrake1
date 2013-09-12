@@ -139,6 +139,7 @@ module Pwrake
       @q = {}
       @hosts.each{|h| @q[h]=@array_class.new}
       @q_remote = @array_class.new
+      @q_prior = Array.new
       @q_later = Array.new
       @enable_steal = !Pwrake.application.pwrake_options['DISABLE_STEAL']
       @steal_wait = (Pwrake.application.pwrake_options['STEAL_WAIT'] || 0).to_i
@@ -154,7 +155,11 @@ module Pwrake
     def enq_impl(t)
       hints = t.suggest_location
       if hints.nil? || hints.empty?
-        @q_later.push(t)
+        if t.actions.empty?
+          @q_prior.push(t)
+        else
+          @q_later.push(t)
+        end
       else
         stored = false
         hints.each do |h|
@@ -174,6 +179,13 @@ module Pwrake
 
 
     def deq_impl(host,n)
+      if !@q_prior.empty?
+        t = @q_prior.shift
+        Log.info "-- deq_prior n=#{n} task=#{t.name} host=#{host}"
+        Log.debug "--- deq_impl\n#{inspect_q}"
+        return t
+      end
+
       if t = deq_locate(host)
         Log.info "-- deq_locate n=#{n} task=#{t.name} host=#{host}"
         Log.debug "--- deq_impl\n#{inspect_q}"
@@ -251,10 +263,13 @@ module Pwrake
           s += "[]\n"
         when 1
           s += "[#{q[0].name}]\n"
+        when 2
+          s += "[#{q[0].name}, #{q[1].name}]\n"
         else
-          s += "[#{q[0].name},..]\n"
+          s += "[#{q[0].name},.. #{q[-1].name}]\n"
         end
       }
+      b.call("prior",@q_prior)
       @q.each(&b)
       b.call("remote",@q_remote)
       b.call("later",@q_later)
@@ -266,6 +281,7 @@ module Pwrake
     end
 
     def clear
+      @q_prior.clear
       @q.each{|h,q| q.clear}
       @q_remote.clear
       @q_later.clear
@@ -274,6 +290,7 @@ module Pwrake
 
     def empty?
       @q.all?{|h,q| q.empty?} &&
+        @q_prior.empty? &&
         @q_remote.empty? &&
         @q_later.empty? &&
         @reserved_q.empty?

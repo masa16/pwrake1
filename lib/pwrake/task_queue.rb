@@ -87,7 +87,8 @@ module Pwrake
 
     def init_queue(*args)
       @cv = TaskConditionVariable.new
-      @q_prior = @array_class.new
+      @q_prior = Array.new
+      @q_input = @array_class.new
       @q_later = Array.new
     end
 
@@ -160,14 +161,17 @@ module Pwrake
       end
     end
 
-    def enq_impl(item)
-      if item.prior?
-        @q_prior.push(item)
+    def enq_impl(t)
+      if t.has_input_file?
+        @q_input.push(t)
       else
-        @q_later.push(item)
+        if t.actions.empty?
+          @q_prior.push(t)
+        else
+          @q_later.push(t)
+        end
       end
     end
-
 
     # deq
     def deq(hint=nil)
@@ -214,17 +218,19 @@ module Pwrake
 
     def deq_impl(hint,n)
       Log.debug "--- TQ#deq_impl #{@q.inspect}"
-      @q_prior.shift || @q_later.shift
+      @q_prior.shift || @q_input.shift || @q_later.shift
     end
 
     def clear
       @q_prior.clear
+      @q_input.clear
       @q_later.clear
       @reserved_q.clear
     end
 
     def empty?
-      @q_prior.empty? && @q_later.empty? && @reserved_q.empty?
+      @q_prior.empty? && @q_input.empty? &&
+        @q_later.empty? && @reserved_q.empty?
     end
 
     def finish

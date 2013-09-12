@@ -266,12 +266,12 @@ module Pwrake
       @file_stat ? @file_stat.size : 0
     end
 
-    def prior?
+    def has_input_file?
       kind_of?(Rake::FileTask) && !@prerequisites.empty?
     end
 
     def suggest_location
-      if prior? && @suggest_location.nil?
+      if has_input_file? && @suggest_location.nil?
         @suggest_location = []
         loc_fsz = Hash.new(0)
         @prerequisites.each do |preq|
