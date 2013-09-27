@@ -50,10 +50,12 @@ EOL
 
       @sh_table = CSV.read(@csv_file,:headers=>true)
       h = {}
+      @elap_sum = 0
       @sh_table.each do |row|
         if host = row['host']
           h[host] = true
         end
+        @elap_sum += row['elap_time'].to_f
       end
       @hosts = h.keys.sort
       @start_time = Time.parse(@sh_table[0]["start_time"])
@@ -153,7 +155,9 @@ EOL
       html << "<table>\n"
       html << "<tr><th>log file</th><td>#{@base}</td><tr>\n"
       html << "<tr><th>ncore</th><td>#{@ncore}</td><tr>\n"
-      html << "<tr><th>elapsed time(sec)</th><td>#{@elap}</td><tr>\n"
+      html << "<tr><th>elapsed time</th><td>%.3f sec</td><tr>\n"%[@elap]
+      html << "<tr><th>cumulative process time</th><td>%.3f sec</td><tr>\n"%[@elap_sum]
+      html << "<tr><th>occupancy</th><td>%.3f %%</td><tr>\n"%[@elap_sum/@elap/@ncore*100]
       html << "<tr><th>start time</th><td>#{@start_time}</td><tr>\n"
       html << "<tr><th>end time</th><td>#{@end_time}</td><tr>\n"
       html << "</table>\n"
@@ -164,12 +168,16 @@ EOL
       end
       html << "</table>\n"
       html << "<h2>Parallelism</h2>\n"
-      fimg = Parallelism.plot_parallelism2(@csv_file)
-      html << "<img src='#{fimg}' align='top'/></br>\n"
+      fimg = Parallelism.plot_parallelism2(@sh_table,@base)
+      html << "<img src='./#{File.basename(fimg)}' align='top'/></br>\n"
+
+      html << "<h2>Parallelism by command</h2>\n"
+      fimg3 = Parallelism.plot_parallelism_by_pattern(@sh_table,@base,@pattern)
+      html << "<img src='./#{File.basename(fimg3)}' align='top'/></br>\n"
 
       html << "<h2>Parallelism by host</h2>\n"
-      fimg2 = Parallelism.plot_parallelizm_by_host(@sh_table,@base)
-      html << "<img src='#{fimg2}' align='top'/></br>\n"
+      fimg2 = Parallelism.plot_parallelism_by_host(@sh_table,@base)
+      html << "<img src='./#{File.basename(fimg2)}' align='top'/></br>\n"
 
       html << "<h2>Command statistics</h2>\n"
       html << "<table>\n"
@@ -182,7 +190,7 @@ EOL
         html << "</tr>\n"
       end
       html << "<table>\n"
-      html << "<img src='#{histogram_plot}' align='top'/></br>\n"
+      html << "<img src='./#{File.basename(histogram_plot)}' align='top'/></br>\n"
 
       task_locality
       html << "<h2>Locality statistics</h2>\n"

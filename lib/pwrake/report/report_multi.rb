@@ -29,7 +29,7 @@ module Pwrake
       end
       html << "</table>\n"
       html << "<h2>Elapsed time</h2>\n"
-      html << "<img src='#{@elap_png}'  align='top'/></br>\n"
+      html << "<img src='./#{File.basename(@elap_png)}'  align='top'/></br>\n"
 
       html << "<h2>Histogram of Execution time</h2>\n"
       html << report_histogram()
@@ -97,7 +97,7 @@ plot #{a}/x,'-' w lp lw 2 ps 2 title 'elapsed time'
           html << "<tr><td>#{id}</td><td>#{r.ncore}</td>" + s.html_td + "</tr>\n"
         end
         html << "</table>\n"
-        html << "<img src='./#{@images[cmd]}'/>\n"
+        html << "<img src='./#{File.basename(@images[cmd])}'/>\n"
       end
       html
     end
