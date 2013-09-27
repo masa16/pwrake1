@@ -156,7 +156,7 @@ module Pwrake
       end
 
       @opts = {'PWRAKE_CONF' => @pwrake_conf,
-        'THREAD_CREATE_INTERVAL' => 0.006,
+        'THREAD_CREATE_INTERVAL' => 0.008,
       }
 
       option_data.each do |a|

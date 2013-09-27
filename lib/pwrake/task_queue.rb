@@ -7,6 +7,10 @@ module Pwrake
   end
 
   class PriorityQueueArray < Array
+    def initialize(n)
+      super()
+    end
+
     def push(t)
       task_id = t.task_id
       if empty? || last.task_id <= task_id
@@ -56,14 +60,73 @@ module Pwrake
   end # PriorityQueueArray
 
   class LifoQueueArray < Array
+    def initialize(n)
+      super()
+    end
+
     def shift
       pop
     end
   end
 
+
+  # Last-nth In First Out
+  class LNifoQueueArray < Array
+    def initialize(n)
+      @n = n
+      Log.debug "--- #{self.class}: @n=#{@n}"
+      super()
+    end
+
+    def shift
+      pop
+    end
+
+    def push(x)
+      if @n==0
+        super(x)
+      elsif self.size > @n
+        insert(-(@n+1),x)
+      else
+        unshift(x)
+      end
+    end
+  end
+
+  # Last-random In First Out
+  class LRifoQueueArray < Array
+    def initialize(n)
+      @n = n
+      Log.debug "--- #{self.class}: @n=#{@n}"
+      super()
+    end
+
+    def shift
+      pop
+    end
+
+    def push(x)
+      if @n==0
+        super(x)
+      elsif self.size > @n
+        insert(-(rand(@n)+1),x)
+      else
+        unshift(x)
+      end
+    end
+  end
+
+
+  class FifoQueueArray < Array
+    def initialize(n)
+      super()
+    end
+  end
+
+
   class TaskQueue
 
-    def initialize(*args)
+    def initialize(core_list)
       @finished = false
       @halt = false
       @mutex = Mutex.new
@@ -71,24 +134,29 @@ module Pwrake
       @enable_steal = true
       @reservation = {}
       @reserved_q = {}
-      case Pwrake.application.pwrake_options['QUEUE_PRIORITY']||"DFS"
+      pri = Pwrake.application.pwrake_options['QUEUE_PRIORITY']||"DFS"
+      case pri
       when /dfs/i
         @array_class = PriorityQueueArray
       when /fifo/i
-        @array_class = Array # Fifo
+        @array_class = FifoQueueArray # Array # Fifo
       when /lifo/i
         @array_class = LifoQueueArray
+      when /lnifo/i
+        @array_class = LNifoQueueArray
+      when /lrifo/i
+        @array_class = LRifoQueueArray
       else
-        raise RuntimeError,"unknown option for QUEUE_PRIORITY"
+        raise RuntimeError,"unknown option for QUEUE_PRIORITY: "+pri
       end
       Log.debug "--- TQ#initialize @array_class=#{@array_class.inspect}"
-      init_queue(*args)
+      init_queue(core_list)
     end
 
-    def init_queue(*args)
+    def init_queue(core_list)
       @cv = TaskConditionVariable.new
       @q_prior = Array.new
-      @q_input = @array_class.new
+      @q_input = @array_class.new(core_list.size)
       @q_later = Array.new
     end
 

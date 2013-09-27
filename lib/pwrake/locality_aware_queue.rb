@@ -131,14 +131,16 @@ module Pwrake
     end # class Throughput
 
 
-    def init_queue(hosts)
+    def init_queue(core_list)
+      @host_count = Hash.new{0}
+      core_list.each{|h| @host_count[h] += 1}
+      @hosts = @host_count.keys
       @cv = LocalityConditionVariable.new
-      @hosts = hosts
       @throughput = Throughput.new
       @size = 0
       @q = {}
-      @hosts.each{|h| @q[h]=@array_class.new}
-      @q_remote = @array_class.new
+      @host_count.each{|h,n| @q[h] = @array_class.new(n)}
+      @q_remote = @array_class.new(0)
       @q_prior = Array.new
       @q_later = Array.new
       @enable_steal = !Pwrake.application.pwrake_options['DISABLE_STEAL']
