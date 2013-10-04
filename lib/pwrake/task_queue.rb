@@ -1,3 +1,5 @@
+require "pwrake/cache_aware_queue.rb"
+
 module Pwrake
 
   class TaskConditionVariable < ConditionVariable
@@ -535,6 +537,8 @@ module Pwrake
         @array_class = ELifoQueueArray
       when /lifo/i
         @array_class = LifoQueueArray
+      when /caq/i
+        @array_class = CacheAwareQueue
       else
         raise RuntimeError,"unknown option for QUEUE_PRIORITY: "+pri
       end

@@ -339,6 +339,10 @@ module Pwrake
       @file_stat ? @file_stat.size : 0
     end
 
+    def file_mtime
+      @file_stat ? @file_stat.mtime : Time.at(0)
+    end
+
     def input_file_size
       unless @input_file_size
         @input_file_size = 0
@@ -378,6 +382,33 @@ module Pwrake
         end
       end
       @suggest_location
+    end
+
+    def input_file_mtime
+      if has_input_file? && @input_file_mtime.nil?
+        hash = Hash.new
+        max_sz = 0
+        @prerequisites.each do |preq|
+          t = application[preq]
+          sz = t.file_size
+          if sz > 0
+            hash[t] = sz
+            if sz > max_sz
+              max_sz = sz
+            end
+          end
+        end
+        half_max_sz = max_sz / 2
+        hash.each do |t,sz|
+          if sz > half_max_sz
+            time = t.file_mtime
+            if @input_file_mtime.nil? || @input_file_mtime < time
+              @input_file_mtime = time
+            end
+          end
+        end
+      end
+      @input_file_mtime
     end
 
     def suggest_location2
