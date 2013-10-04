@@ -70,8 +70,8 @@ module Pwrake
   end
 
 
-  # Last-nth In First Out
-  class LNifoQueueArray < Array
+  # N-th Last In First Out
+  class NLifoQueueArray < Array
     def initialize(n)
       @n = n
       Log.debug "--- #{self.class}: @n=#{@n}"
@@ -93,10 +93,10 @@ module Pwrake
     end
   end
 
-  # Last-random In First Out
-  class LRifoQueueArray < Array
+  # Random Last In First Out
+  class RLifoQueueArray < Array
     def initialize(n)
-      @n = n
+      @n = n*2
       Log.debug "--- #{self.class}: @n=#{@n}"
       super()
     end
@@ -106,13 +106,394 @@ module Pwrake
     end
 
     def push(x)
-      if @n==0
+      if @n==0 || empty?
         super(x)
-      elsif self.size > @n
-        insert(-(rand(@n)+1),x)
       else
-        unshift(x)
+        n = [self.size+1,@n].min
+        insert(-(rand(n)+1),x)
       end
+    end
+  end
+
+  # Alternate Last In First Out
+  class ALifoQueueArray < Array
+    def initialize(n)
+      @i = 0
+      @w = 8
+      super()
+    end
+
+    def shift
+      @i = 1 - @i
+      if @i==1
+        pop
+      else
+        pos = rand(size)
+        pbeg = [0,pos-@w].max
+        pend = [size,pos+@w].min-1
+        idx = max_index(self[pbeg..pend]){|x| x.input_file_size}
+        delete_at(pbeg+idx)
+      end
+    end
+
+    def max_index(ary)
+      y_max = nil
+      i_max = nil
+      ary.each_with_index do |x,i|
+        y = yield(x)
+        if y_max.nil? || y > y_max
+          y_max = y
+          i_max = i
+        end
+      end
+      i_max
+    end
+  end
+
+  # Alternate Last Max In First Out
+  class MLifoQueueArray < Array
+    def initialize(n)
+      @i = 0
+      @n = (n>0)? n : 1
+      super()
+    end
+
+    def shift
+      if size >= @n*2
+        ibeg = size - @n*(@i+1)
+        iend = size - @n*@i - 1
+      else
+        if @i==0
+          ibeg = [0,size-@n].max
+          iend = size - 1
+        else
+          ibeg = 0
+          iend = [size,@n].min-1
+        end
+      end
+      @i = 1 - @i
+      a = self[ibeg..iend]
+      if a.size > 1
+        idx = max_index(a){|x| x.input_file_size}
+        delete_at(ibeg+idx)
+      else
+        pop
+      end
+    end
+
+    def max_index(ary)
+      y_max = nil
+      i_max = nil
+      ary.each_with_index do |x,i|
+        y = yield(x)
+        if y_max.nil? || y > y_max
+          y_max = y
+          i_max = i
+        end
+      end
+      i_max
+    end
+  end
+
+  # ranK-rotate Last In First Out
+  class KLifoQueueArray
+    def initialize(n)
+      @q = []
+      @i = 0
+      @size = 0
+      @n = (n>0) ? n : 1
+    end
+
+    def push(t)
+      r = t.rank
+      a = @q[r]
+      if a.nil?
+        @q[r] = a = []
+      end
+      @size += 1
+      a.push(t)
+    end
+
+    def size
+      @size
+    end
+
+    def empty?
+      @size == 0
+    end
+
+    def shift
+      if empty?
+        return nil
+      elsif @size < @n*2
+        shift_noweight
+      else
+        shift_weighted
+      end
+    end
+
+    def shift_noweight
+      Log.debug "--- shift_noweight @q=#{@q.inspect}"
+      rand_max = @q.count{|a| !(a.nil? || a.empty?)}
+      x = rand(rand_max)
+      n = 0
+      @size -= 1
+      @q.each do |a|
+        next if a.nil? || a.empty?
+        n += 1
+        if n > x
+          return pop_last_max(a)
+          #return a.pop
+        end
+      end
+    end
+
+    def shift_weighted
+      x = rand(@size)
+      n = 0
+      @size -= 1
+      @q.each do |a|
+        next if a.nil? || a.empty?
+        n += a.size
+        if n > x
+          #return pop_last_max(a)
+          return a.pop
+        end
+      end
+    end
+
+    def shift_bak
+      return nil if empty?
+      @size -= 1
+      while true
+        a = @q[@i]
+        @i = (@i+1) % @q.size
+        unless a.nil? || a.empty?
+          return pop_last_max(a)
+        end
+      end
+    end
+
+    def pop_last_max(a)
+      if a.size < 2
+        return a.pop
+      end
+      y_max = nil
+      i_max = nil
+      n = [@n, a.size].min
+      (-n..-1).each do |i|
+        y = a[i].input_file_size
+        if y_max.nil? || y > y_max
+          y_max = y
+          i_max = i
+        end
+      end
+      a.delete_at(i_max)
+    end
+
+    def first
+      return nil if empty?
+      @q.size.times do |i|
+        a = @q[i]
+        unless a.nil? || a.empty?
+          return a.first
+        end
+      end
+    end
+
+    def last
+      return nil if empty?
+      @q.size.times do |i|
+        a = @q[-i-1]
+        unless a.nil? || a.empty?
+          return a.last
+        end
+      end
+    end
+
+    def delete(t)
+      n = 0
+      @q.each do |a|
+        if a
+          a.delete(t)
+          n += a.size
+        end
+      end
+      @size = n
+    end
+
+    def clear
+      @q.clear
+      @i = 0
+      @size = 0
+    end
+  end
+
+  # rank-Even Last In First Out
+  class ELifoQueueArray
+    def initialize(n)
+      @q = []
+      @i = 0
+      @size = 0
+      @n = (n>0) ? n : 1
+    end
+
+    def push(t)
+      r = t.rank
+      a = @q[r]
+      if a.nil?
+        @q[r] = a = []
+      end
+      @size += 1
+      a.push(t)
+    end
+
+    def size
+      @size
+    end
+
+    def empty?
+      @size == 0
+    end
+
+    def shift
+      if empty?
+        return nil
+      elsif @size < @n*2
+        return shift_high_rank
+      else
+        return shift_weighted
+      end
+    end
+
+    def shift_noweight
+      Log.debug "--- shift_noweight @q=#{@q.inspect}"
+      rand_max = @q.count{|a| !(a.nil? || a.empty?)}
+      x = rand(rand_max)
+      n = 0
+      @size -= 1
+      @q.each do |a|
+        next if a.nil? || a.empty?
+        n += 1
+        if n > x
+          return pop_last_max(a)
+          #return a.pop
+        end
+      end
+    end
+
+    def shift_high_rank
+      (@q.size-1).downto(0) do |i|
+        a = @q[i]
+        next if a.nil? || a.empty?
+        @size -= 1
+        return pop_last_max(a)
+      end
+      nil
+    end
+
+    def shift_weighted_ending
+      weight, weight_avg = RANK_STAT.rank_weight
+      wsum = 0.0
+      q = []
+      @q.each_with_index do |a,i|
+        next if a.nil? || a.empty?
+        w = weight[i]
+        w = weight_avg if w.nil?
+        w *= 2**i
+        wsum += w
+        q << [a,wsum]
+      end
+      #
+      x = rand() * wsum
+      Log.debug "--- shift_weighted x=#{x} wsum=#{wsum} weight=#{weight.inspect}"
+      @size -= 1
+      q.each do |a,w|
+        if w > x
+          return pop_last_max(a)
+          #return a.pop
+        end
+      end
+      raise "ELIFO: wsum=#{wsum} x=#{x}"
+    end
+
+    def shift_weighted
+      weight, weight_avg = RANK_STAT.rank_weight
+      wsum = 0.0
+      q = []
+      @q.each_with_index do |a,i|
+        next if a.nil? || a.empty?
+        w = weight[i]
+        w = weight_avg if w.nil?
+        # w *= a.size
+        wsum += w
+        q << [a,wsum]
+      end
+      #
+      x = rand() * wsum
+      Log.debug "--- shift_weighted x=#{x} wsum=#{wsum} weight=#{weight.inspect}"
+      @size -= 1
+      q.each do |a,w|
+        if w > x
+          return a.pop
+        end
+      end
+      raise "ELIFO: wsum=#{wsum} x=#{x}"
+    end
+
+
+    def pop_last_max(a)
+      if a.size < 2
+        return a.pop
+      end
+      y_max = nil
+      i_max = nil
+      n = [@n, a.size].min
+      (-n..-1).each do |i|
+        y = a[i].input_file_size
+        if y_max.nil? || y > y_max
+          y_max = y
+          i_max = i
+        end
+      end
+      a.delete_at(i_max)
+    end
+
+    def first
+      return nil if empty?
+      @q.size.times do |i|
+        a = @q[i]
+        unless a.nil? || a.empty?
+          return a.first
+        end
+      end
+    end
+
+    def last
+      return nil if empty?
+      @q.size.times do |i|
+        a = @q[-i-1]
+        unless a.nil? || a.empty?
+          return a.last
+        end
+      end
+    end
+
+    def delete(t)
+      n = 0
+      @q.each do |a|
+        if a
+          a.delete(t)
+          n += a.size
+        end
+      end
+      @size = n
+    end
+
+    def clear
+      @q.clear
+      @i = 0
+      @size = 0
     end
   end
 
@@ -140,12 +521,20 @@ module Pwrake
         @array_class = PriorityQueueArray
       when /fifo/i
         @array_class = FifoQueueArray # Array # Fifo
+      when /nifo/i
+        @array_class = NLifoQueueArray
+      when /rifo/i
+        @array_class = RLifoQueueArray
+      when /aifo/i
+        @array_class = ALifoQueueArray
+      when /mifo/i
+        @array_class = MLifoQueueArray
+      when /kifo/i
+        @array_class = KLifoQueueArray
+      when /eifo/i
+        @array_class = ELifoQueueArray
       when /lifo/i
         @array_class = LifoQueueArray
-      when /lnifo/i
-        @array_class = LNifoQueueArray
-      when /lrifo/i
-        @array_class = LRifoQueueArray
       else
         raise RuntimeError,"unknown option for QUEUE_PRIORITY: "+pri
       end

@@ -227,10 +227,11 @@ module Pwrake
       if q && !q.empty?
         t = q.shift
         t.assigned.each do |h|
-          a = @q[h]
-          if i = a.index(t)
-            a.delete_at(i)
-          end
+          @q[h].delete(t)
+          #a = @q[h]          
+          #if i = a.index(t)
+          #  a.delete_at(i)
+          #end
         end
         @size -= 1
         return t
@@ -264,11 +265,11 @@ module Pwrake
         when 0
           s += "[]\n"
         when 1
-          s += "[#{q[0].name}]\n"
+          s += "[#{q.first.name}]\n"
         when 2
-          s += "[#{q[0].name}, #{q[1].name}]\n"
+          s += "[#{q.first.name}, #{q.last.name}]\n"
         else
-          s += "[#{q[0].name},.. #{q[-1].name}]\n"
+          s += "[#{q.first.name},.. #{q.last.name}]\n"
         end
       }
       b.call("prior",@q_prior)

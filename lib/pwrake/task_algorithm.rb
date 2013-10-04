@@ -3,6 +3,50 @@ module Pwrake
   InvocationChain = Rake::InvocationChain
   TaskArguments = Rake::TaskArguments
 
+  class RankStat
+    def initialize
+      @lock = Mutex.new
+      @stat = []
+    end
+
+    def add_sample(rank,elap)
+      @lock.synchronize do
+        stat = @stat[rank]
+        if stat.nil?
+          @stat[rank] = stat = [0,0.0]
+        end
+        stat[0] += 1
+        stat[1] += elap
+        Log.debug "--- add_sample rank=#{rank} stat=#{stat.inspect} weight=#{stat[0]/stat[1]}"
+      end
+    end
+
+    def rank_weight
+      @lock.synchronize do
+        sum = 0.0
+        count = 0
+        weight = @stat.map do |stat|
+          if stat
+            w = stat[0]/stat[1]
+            sum += w
+            count += 1
+            w
+          else
+            nil
+          end
+        end
+        if count == 0
+          avg = 1.0
+        else
+          avg = sum/count
+        end
+        [weight, avg]
+      end
+    end
+  end
+
+  RANK_STAT = RankStat.new
+
   module TaskAlgorithm
 
     def location
@@ -63,7 +107,7 @@ module Pwrake
       timer = Timer.new("search_task")
       h = application.pwrake_options['HALT_QUEUE_WHILE_SEARCH']
       application.task_queue.synchronize(h) do
-	search_with_call_chain(self, task_args, InvocationChain::EMPTY)
+	search_with_call_chain(nil, task_args, InvocationChain::EMPTY)
       end
       timer.finish
     end
@@ -104,10 +148,12 @@ module Pwrake
       end
       return if !application.task_logger
 
-      row = [ @task_id, name,
-        time_start, time_end, time_end-time_start,
-        @prerequisites.join('|')
-      ]
+      elap = time_end - time_start
+      if !@actions.empty? && kind_of?(Rake::FileTask)
+        RANK_STAT.add_sample(rank,elap)
+      end
+
+      row = [ @task_id, name, time_start, time_end, elap, @prerequisites.join('|') ]
 
       if loc
         row << loc.join('|')
@@ -217,11 +263,12 @@ module Pwrake
 
         return true if @already_finished # <<--- competition !!!
         @subsequents ||= []
-        @subsequents << subseq           # <<--- competition !!!
+        @subsequents << subseq if subseq # <<--- competition !!!
 
         if ! @already_searched
           @already_searched = true
           @arg_data = task_args
+          @lock_rank = Monitor.new
           if @prerequisites.empty?
             @unfinished_prereq = {}
           else
@@ -262,8 +309,44 @@ module Pwrake
     end
     private :format_search_flags
 
+    def rank
+      @lock_rank.synchronize do
+        if @rank.nil?
+          if @subsequents.nil? || @subsequents.empty?
+            @rank = 0
+          else
+            max_rank = 0
+            @subsequents.each do |subsq|
+              r = subsq.rank
+              if max_rank < r
+                max_rank = r
+              end
+            end
+            if @actions.empty? || !kind_of?(Rake::FileTask)
+              step = 0
+            else
+              step = 1
+            end
+            @rank = max_rank + step
+          end
+          Log.debug "--- Task[#{name}] rank=#{@rank.inspect}"
+        end
+      end
+      @rank
+    end
+
     def file_size
       @file_stat ? @file_stat.size : 0
+    end
+
+    def input_file_size
+      unless @input_file_size
+        @input_file_size = 0
+        @prerequisites.each do |preq|
+          @input_file_size += application[preq].file_size
+        end
+      end
+      @input_file_size
     end
 
     def has_input_file?
