@@ -236,9 +236,12 @@ module Pwrake
     def pw_enq_subsequents
       @lock.synchronize do
         t = Time.now
-        @subsequents.each do |t|        # <<--- competition !!!
-          if t && t.check_prereq_finished(self.name)
-            application.task_queue.enq(t)
+        h = application.pwrake_options['HALT_QUEUE_WHILE_SEARCH']
+        application.task_queue.synchronize(h) do
+          @subsequents.each do |t|        # <<--- competition !!!
+            if t && t.check_prereq_finished(self.name)
+              application.task_queue.enq(t)
+            end
           end
         end
         @already_finished = true        # <<--- competition !!!

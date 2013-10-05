@@ -335,7 +335,6 @@ module Pwrake
   class ELifoQueueArray
     def initialize(n)
       @q = []
-      @i = 0
       @size = 0
       @n = (n>0) ? n : 1
     end
@@ -361,62 +360,18 @@ module Pwrake
     def shift
       if empty?
         return nil
-      elsif @size < @n*2
-        return shift_high_rank
-      else
-        return shift_weighted
       end
-    end
-
-    def shift_noweight
-      Log.debug "--- shift_noweight @q=#{@q.inspect}"
-      rand_max = @q.count{|a| !(a.nil? || a.empty?)}
-      x = rand(rand_max)
-      n = 0
-      @size -= 1
-      @q.each do |a|
-        next if a.nil? || a.empty?
-        n += 1
-        if n > x
-          return pop_last_max(a)
-          #return a.pop
-        end
-      end
-    end
-
-    def shift_high_rank
       (@q.size-1).downto(0) do |i|
         a = @q[i]
         next if a.nil? || a.empty?
         @size -= 1
-        return pop_last_max(a)
-      end
-      nil
-    end
-
-    def shift_weighted_ending
-      weight, weight_avg = RANK_STAT.rank_weight
-      wsum = 0.0
-      q = []
-      @q.each_with_index do |a,i|
-        next if a.nil? || a.empty?
-        w = weight[i]
-        w = weight_avg if w.nil?
-        w *= 2**i
-        wsum += w
-        q << [a,wsum]
-      end
-      #
-      x = rand() * wsum
-      Log.debug "--- shift_weighted x=#{x} wsum=#{wsum} weight=#{weight.inspect}"
-      @size -= 1
-      q.each do |a,w|
-        if w > x
+        if a.size <= @n
           return pop_last_max(a)
-          #return a.pop
+        else
+          return shift_weighted
         end
       end
-      raise "ELIFO: wsum=#{wsum} x=#{x}"
+      raise "ELIFO: @q=#{@q.inspect}"
     end
 
     def shift_weighted
@@ -434,7 +389,6 @@ module Pwrake
       #
       x = rand() * wsum
       Log.debug "--- shift_weighted x=#{x} wsum=#{wsum} weight=#{weight.inspect}"
-      @size -= 1
       q.each do |a,w|
         if w > x
           return a.pop
@@ -442,7 +396,6 @@ module Pwrake
       end
       raise "ELIFO: wsum=#{wsum} x=#{x}"
     end
-
 
     def pop_last_max(a)
       if a.size < 2
@@ -494,7 +447,6 @@ module Pwrake
 
     def clear
       @q.clear
-      @i = 0
       @size = 0
     end
   end
