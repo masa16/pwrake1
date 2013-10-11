@@ -117,24 +117,28 @@ module Pwrake
       if shell = Pwrake.current_shell
         shell.current_task = self
       end
-
       @lock.synchronize do
         return if @already_invoked
         @already_invoked = true
       end
       pw_execute(@arg_data) if needed?
+      Log.debug("pw_execute: #{Time.now-time_start} sec, name=#{name}")
       if kind_of?(Rake::FileTask)
-        application.postprocess(self) #        <---------
+        t = Time.now
+        application.postprocess(self)
+        Log.debug("postprocess: #{Time.now-t} sec, name=#{name}")
         if File.exist?(name)
+          t = Time.now
           @file_stat = File::Stat.new(name)
+          Log.debug("File::Stat: #{Time.now-t} sec, name=#{name}")
         end
       end
       log_task(time_start)
       t = Time.now
       application.finish_queue.enq(self)
       shell.current_task = nil if shell
-      pw_enq_subsequents              #        <---------
-      Log.debug "--- pw_invoke (#{name}) postprocess time=#{Time.now-t} sec"
+      pw_enq_subsequents
+      Log.debug "--- pw_invoke (#{name}) enq_subseq time=#{Time.now-t} sec"
     end
 
     def log_task(time_start)
