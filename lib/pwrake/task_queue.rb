@@ -8,6 +8,7 @@ module Pwrake
     end
   end
 
+
   class PriorityQueueArray < Array
     def initialize(n)
       super()
@@ -61,6 +62,7 @@ module Pwrake
     end
   end # PriorityQueueArray
 
+
   class LifoQueueArray < Array
     def initialize(n)
       super()
@@ -68,6 +70,13 @@ module Pwrake
 
     def shift
       pop
+    end
+  end
+
+
+  class FifoQueueArray < Array
+    def initialize(n)
+      super()
     end
   end
 
@@ -189,13 +198,6 @@ module Pwrake
     def clear
       @q.clear
       @size = 0
-    end
-  end
-
-
-  class FifoQueueArray < Array
-    def initialize(n)
-      super()
     end
   end
 
