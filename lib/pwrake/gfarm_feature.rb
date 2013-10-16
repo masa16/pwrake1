@@ -1,3 +1,5 @@
+require 'pwrake/gfwhere_pool'
+
 module Pwrake
 
   module GfarmPath
@@ -207,47 +209,13 @@ module Pwrake
   class GfarmPostprocess
 
     def initialize
-      @lock = Mutex.new
-      @io = IO.popen('gfwhere-pipe','r+')
-      @io.sync = true
-    end
-
-    def gfwhere(file)
-      return [] if file==''
-      t = Time.now
-      @lock.synchronize do
-        Log.debug "gfwhere:lock %.6f sec, file=%s" % [Time.now-t,file]
-        @io.puts(file)
-        t = Time.now
-        @io.flush
-        s = @io.gets
-        if s.nil?
-          raise "gfwhere: unexpected end"
-        end
-        s.chomp!
-        if s != file
-          raise "gfwhere: file=#{file}, result=#{s}"
-        end
-        while s = @io.gets
-          s.chomp!
-          case s
-          when ""
-            next
-          when /^gfarm:\/\//
-            next
-          when /^Error:/
-            return []
-          else
-            Log.debug "gfwhere:path %.6f sec, file=%s" % [Time.now-t,file]
-            return s.split(/\s+/)
-          end
-        end
-      end
+      max = Pwrake.application.pwrake_options['MAX_GFWHERE_WORKER']
+      @gfwhere_pool = WorkerPool.new(GfwhereWorker,max)
     end
 
     def postprocess(t)
       if t.kind_of? Rake::FileTask
-        t.location = gfwhere(t.name)
+        t.location = @gfwhere_pool.work(t.name)
       end
     end
 
