@@ -22,11 +22,14 @@ module Pwrake
     attr_reader :postprocess
 
     def initialize
-      init_option    # Pwrake::Option
-      setup_option   # Pwrake::Option
       @started = false
       @lock = Mutex.new
       @current_task_id = -1
+    end
+
+    def init
+      init_option    # Pwrake::Option
+      setup_option   # Pwrake::Option
     end
 
     def start
@@ -34,7 +37,7 @@ module Pwrake
       timer = Timer.new("start_worker")
       @finish_queue = Queue.new
       @task_queue = @queue_class.new(@core_list)
-      @shell_set = []
+      @shell_set = (1..@num_noaction_threads).map{ NoActionShell.new }
       @core_list.each_with_index do |h,i|
         @shell_set << @shell_class.new(h,@shell_opt)
       end

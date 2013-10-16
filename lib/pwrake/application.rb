@@ -64,6 +64,7 @@ module Pwrake
       standard_exception_handling do
         init("pwrake")
         @master = Master.new
+        @master.init
         load_rakefile
         begin
           top_level
