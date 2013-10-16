@@ -81,8 +81,8 @@ module Pwrake
   end
 
 
-  # rank-Even Last In First Out
-  class ELifoQueueArray
+  # Rank-Even Last In First Out
+  class RankQueueArray
     def initialize(n)
       @q = []
       @size = 0
@@ -202,6 +202,98 @@ module Pwrake
   end
 
 
+  class NoActionQueue
+    def initialize
+      @que = []
+      @num_waiting = 0
+      @mutex = Mutex.new
+      @cond = ConditionVariable.new
+      prio = Pwrake.application.pwrake_options['NOACTION_QUEUE_PRIORITY'] || 'fifo'
+      case prio
+      when /fifo/i
+        @prio = 0
+        Log.debug "--- NOACTION_QUEUE_PRIORITY=FIFO"
+      when /lifo/i
+        @prio = 1
+        Log.debug "--- NOACTION_QUEUE_PRIORITY=LIFO"
+      when /rand/i
+        @prio = 2
+        Log.debug "--- NOACTION_QUEUE_PRIORITY=RAND"
+      else
+        raise RuntimeError,"unknown option for NOACTION_QUEUE_PRIORITY: "+prio
+      end
+    end
+
+    def push(obj)
+      @mutex.synchronize do
+        @que.push obj
+        @cond.signal
+      end
+    end
+    alias << push
+    alias enq push
+
+    def pop
+      @mutex.synchronize do
+        t = Time.now
+        while true
+          if @que.empty?
+            if @finished
+              @cond.signal
+              return false
+            end
+            @cond.wait @mutex
+          else
+            case @prio
+            when 0
+              x = @que.shift
+            when 1
+              x = @que.pop
+            when 2
+              x = @que.delete_at(rand(@que.size))
+            end
+            Log.debug "--- NATQ#deq %.6f sec #{x.inspect}"%[Time.now-t]
+            return x
+          end
+        end
+      end
+    end
+    alias shift pop
+    alias deq pop
+
+    def empty?
+      @que.empty?
+    end
+
+    def clear
+      @que.clear
+    end
+
+    def length
+      @que.length
+    end
+    alias size length
+
+    def first
+      @que.first
+    end
+
+    def last
+      @que.last
+    end
+
+    def finish
+      @finished = true
+      @cond.broadcast
+    end
+
+    def stop
+      clear
+      finish
+    end
+  end
+
+
   class TaskQueue
 
     def initialize(core_list)
@@ -212,28 +304,17 @@ module Pwrake
       @enable_steal = true
       @reservation = {}
       @reserved_q = {}
-      pri = Pwrake.application.pwrake_options['QUEUE_PRIORITY']||"DFS"
+      @q_noaction = NoActionQueue.new
+      pri = Pwrake.application.pwrake_options['QUEUE_PRIORITY'] || "RANK"
       case pri
       when /dfs/i
         @array_class = PriorityQueueArray
       when /fifo/i
         @array_class = FifoQueueArray # Array # Fifo
-      when /nifo/i
-        @array_class = NLifoQueueArray
-      when /rifo/i
-        @array_class = RLifoQueueArray
-      when /aifo/i
-        @array_class = ALifoQueueArray
-      when /mifo/i
-        @array_class = MLifoQueueArray
-      when /kifo/i
-        @array_class = KLifoQueueArray
-      when /eifo/i
-        @array_class = ELifoQueueArray
       when /lifo/i
         @array_class = LifoQueueArray
-      when /caq/i
-        @array_class = CacheAwareQueue
+      when /rank/i
+        @array_class = RankQueueArray
       else
         raise RuntimeError,"unknown option for QUEUE_PRIORITY: "+pri
       end
@@ -243,7 +324,6 @@ module Pwrake
 
     def init_queue(core_list)
       @cv = TaskConditionVariable.new
-      @q_prior = Array.new
       @q_input = @array_class.new(core_list.size)
       @q_later = Array.new
     end
@@ -294,7 +374,9 @@ module Pwrake
     def enq(item)
       Log.debug "--- TQ#enq #{item.name}"
       t0 = Time.now
-      if @halt
+      if item.actions.empty?
+        @q_noaction.enq(item)
+      elsif @halt
 	enq_body(item)
       else
         @mutex.synchronize do
@@ -321,16 +403,15 @@ module Pwrake
       if t.has_input_file?
         @q_input.push(t)
       else
-        if t.actions.empty?
-          @q_prior.push(t)
-        else
-          @q_later.push(t)
-        end
+        @q_later.push(t)
       end
     end
 
     # deq
     def deq(hint=nil)
+      if hint == '(noaction)'
+        return @q_noaction.deq
+      end
       n = 0
       loop do
         @mutex.synchronize do
@@ -374,28 +455,30 @@ module Pwrake
 
     def deq_impl(hint,n)
       Log.debug "--- TQ#deq_impl #{@q.inspect}"
-      @q_prior.shift || @q_input.shift || @q_later.shift
+      @q_input.shift || @q_later.shift
     end
 
     def clear
-      @q_prior.clear
+      @q_noaction.clear
       @q_input.clear
       @q_later.clear
       @reserved_q.clear
     end
 
     def empty?
-      @q_prior.empty? && @q_input.empty? &&
+      @q_noaction.empty? && @q_input.empty? &&
         @q_later.empty? && @reserved_q.empty?
     end
 
     def finish
       Log.debug "--- TQ#finish"
+      @q_noaction.finish
       @finished = true
       @cv.broadcast
     end
 
     def stop
+      @q_noaction.stop
       @mutex.synchronize do
         clear
         finish

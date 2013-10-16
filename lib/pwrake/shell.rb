@@ -170,4 +170,17 @@ module Pwrake
     end
   end
 
+
+  class NoActionShell < Shell
+    def initialize()
+      @host = '(noaction)'
+      @@current_id += 1
+      @id = @@current_id
+    end
+    def start
+    end
+    def finish
+    end
+  end
+
 end # module Pwrake

@@ -141,7 +141,6 @@ module Pwrake
       @q = {}
       @host_count.each{|h,n| @q[h] = @array_class.new(n)}
       @q_remote = @array_class.new(0)
-      @q_prior = Array.new
       @q_later = Array.new
       @enable_steal = !Pwrake.application.pwrake_options['DISABLE_STEAL']
       @steal_wait = (Pwrake.application.pwrake_options['STEAL_WAIT'] || 0).to_i
@@ -157,11 +156,7 @@ module Pwrake
     def enq_impl(t)
       hints = t.suggest_location
       if hints.nil? || hints.empty?
-        if t.actions.empty?
-          @q_prior.push(t)
-        else
-          @q_later.push(t)
-        end
+        @q_later.push(t)
       else
         stored = false
         hints.each do |h|
@@ -181,13 +176,6 @@ module Pwrake
 
 
     def deq_impl(host,n)
-      if !@q_prior.empty?
-        t = @q_prior.shift
-        Log.info "-- deq_prior n=#{n} task=#{t.name} host=#{host}"
-        Log.debug "--- deq_impl\n#{inspect_q}"
-        return t
-      end
-
       if t = deq_locate(host)
         Log.info "-- deq_locate n=#{n} task=#{t.name} host=#{host}"
         Log.debug "--- deq_impl\n#{inspect_q}"
@@ -228,10 +216,6 @@ module Pwrake
         t = q.shift
         t.assigned.each do |h|
           @q[h].delete(t)
-          #a = @q[h]          
-          #if i = a.index(t)
-          #  a.delete_at(i)
-          #end
         end
         @size -= 1
         return t
@@ -272,7 +256,7 @@ module Pwrake
           s += "[#{q.first.name},.. #{q.last.name}]\n"
         end
       }
-      b.call("prior",@q_prior)
+      b.call("noaction",@q_noaction)
       @q.each(&b)
       b.call("remote",@q_remote)
       b.call("later",@q_later)
@@ -284,7 +268,7 @@ module Pwrake
     end
 
     def clear
-      @q_prior.clear
+      @q_noaction.clear
       @q.each{|h,q| q.clear}
       @q_remote.clear
       @q_later.clear
@@ -293,7 +277,7 @@ module Pwrake
 
     def empty?
       @q.all?{|h,q| q.empty?} &&
-        @q_prior.empty? &&
+        @q_noaction.empty? &&
         @q_remote.empty? &&
         @q_later.empty? &&
         @reserved_q.empty?
