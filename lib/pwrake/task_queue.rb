@@ -208,6 +208,7 @@ module Pwrake
       @num_waiting = 0
       @mutex = Mutex.new
       @cond = ConditionVariable.new
+      @halt = false
       prio = Pwrake.application.pwrake_options['NOACTION_QUEUE_PRIORITY'] || 'fifo'
       case prio
       when /fifo/i
@@ -225,9 +226,13 @@ module Pwrake
     end
 
     def push(obj)
-      @mutex.synchronize do
+      if @halt
         @que.push obj
-        @cond.signal
+      else
+        @mutex.synchronize do
+          @que.push obj
+          @cond.signal
+        end
       end
     end
     alias << push
@@ -237,7 +242,9 @@ module Pwrake
       @mutex.synchronize do
         t = Time.now
         while true
-          if @que.empty?
+          if @halt
+            @cond.wait @mutex
+          elsif @que.empty?
             if @finished
               @cond.signal
               return false
@@ -258,8 +265,20 @@ module Pwrake
         end
       end
     end
+
     alias shift pop
     alias deq pop
+
+    def halt
+      @mutex.lock
+      @halt = true
+    end
+
+    def resume
+      @halt = false
+      @mutex.unlock
+      @cond.broadcast
+    end
 
     def empty?
       @que.empty?
@@ -336,29 +355,26 @@ module Pwrake
     end
 
     def halt
-      @mutex.synchronize do
-        @halt = true
-      end
+      @q_noaction.halt
+      @mutex.lock
+      @halt = true
     end
 
     def resume
-      @mutex.synchronize do
-        @halt = false
-        @cv.broadcast
-      end
+      @halt = false
+      @q_noaction.resume
+      @mutex.unlock
+      @cv.broadcast
     end
 
     def synchronize(condition)
       ret = nil
       if condition
-        @mutex.lock
-	@halt = true
+        halt
 	begin
           ret = yield
-	  @cv.broadcast
 	ensure
-	  @halt = false
-	  @mutex.unlock
+          resume
         end
       else
 	ret = yield
