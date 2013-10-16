@@ -12,9 +12,9 @@ module Pwrake
 
     def parse_opt(s)
       case s
-      when /false|nil|off/i
+      when /^(false|nil|off)$/i
         false
-      when /true|on/i
+      when /^(true|on)$/i
         true
       else
         s
@@ -41,10 +41,11 @@ module Pwrake
         'DEBUG',
         'PLOT_PARALLELISM',
         'HALT_QUEUE_WHILE_SEARCH',
-        'THREAD_CREATE_INTERVAL',
         'SHOW_CONF',
         'FAILED_TARGET', # rename(default), delete, leave
-        'QUEUE_PRIORITY', # DFS(default), FIFO,
+        'QUEUE_PRIORITY', # RANK(default), FIFO, LIFO, DFS
+        'NOACTION_QUEUE_PRIORITY', # FIFO(default), LIFO, RAND
+        'NUM_NOACTION_THREADS', # default=4 when gfarm, else 1
         'STEAL_WAIT',
         'STEAL_WAIT_MAX',
 
@@ -88,16 +89,18 @@ module Pwrake
             end
          }],
         ['NUM_THREADS', proc{|v| v && v.to_i}],
+        ['THREAD_CREATE_INTERVAL', proc{|v| (v || 0.010).to_f}],
         ['DISABLE_AFFINITY', proc{|v| v || ENV['AFFINITY']=='off'}],
         ['DISABLE_STEAL', proc{|v| v || ENV['STEAL']=='off'}],
         ['GFARM_BASEDIR', proc{|v| v || '/tmp'}],
         ['GFARM_PREFIX', proc{|v| v || "pwrake_#{ENV['USER']}"}],
         ['GFARM_SUBDIR', proc{|v| v || '/'}],
-        #['MASTER_HOSTNAME', proc{|v| v || `hostname -f`.chomp}],
+        ['MAX_GFWHERE_WORKER', proc{|v| (v || 32).to_i}],
+        ['MASTER_HOSTNAME', proc{|v| (v || begin;`hostname -f`;rescue;end || '').chomp}],
         ['WORK_DIR',proc{|v|
             v ||= '$HOME/%CWD_RELATIVE_TO_HOME'
             v.sub('%CWD_RELATIVE_TO_HOME',cwd_relative_to_home)
-          }]
+          }],
       ]
     end
 
@@ -155,9 +158,7 @@ module Pwrake
         @yaml = open(@pwrake_conf){|f| YAML.load(f) }
       end
 
-      @opts = {'PWRAKE_CONF' => @pwrake_conf,
-        'THREAD_CREATE_INTERVAL' => 0.012,
-      }
+      @opts = { 'PWRAKE_CONF' => @pwrake_conf, }
 
       option_data.each do |a|
         prc = nil
@@ -376,6 +377,8 @@ module Pwrake
         end
       end
 
+      n_noaction_th = @opts['NUM_NOACTION_THREADS']
+
       case @filesystem
       when 'gfarm'
         require "pwrake/locality_aware_queue"
@@ -394,12 +397,14 @@ module Pwrake
 	else
 	  @queue_class = LocalityAwareQueue
 	end
+        @num_noaction_threads = (n_noaction_th || [8,@num_threads].max).to_i
         @postprocess = GfarmPostprocess.new
         Log.debug "--- @queue_class=#{@queue_class}"
       else
         @filesystem  = 'nfs'
         @shell_class = Shell
         @queue_class = TaskQueue
+        @num_noaction_threads = (n_noaction_th || 1).to_i
       end
     end
 
