@@ -278,7 +278,7 @@ module Pwrake
       @q.all?{|h,q| q.empty?} &&
         @q_noaction.empty? &&
         @q_remote.empty? &&
-        @q_later.empty? &&
+        @q_later.empty?
     end
 
     def finish
