@@ -95,7 +95,7 @@ module Pwrake
         ['GFARM_BASEDIR', proc{|v| v || '/tmp'}],
         ['GFARM_PREFIX', proc{|v| v || "pwrake_#{ENV['USER']}"}],
         ['GFARM_SUBDIR', proc{|v| v || '/'}],
-        ['MAX_GFWHERE_WORKER', proc{|v| (v || 32).to_i}],
+        ['MAX_GFWHERE_WORKER', proc{|v| (v || 8).to_i}],
         ['MASTER_HOSTNAME', proc{|v| (v || begin;`hostname -f`;rescue;end || '').chomp}],
         ['WORK_DIR',proc{|v|
             v ||= '$HOME/%CWD_RELATIVE_TO_HOME'
