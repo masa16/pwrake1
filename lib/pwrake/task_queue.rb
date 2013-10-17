@@ -1,5 +1,3 @@
-require "pwrake/cache_aware_queue.rb"
-
 module Pwrake
 
   class TaskConditionVariable < ConditionVariable
