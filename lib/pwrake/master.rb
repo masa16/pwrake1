@@ -56,6 +56,7 @@ module Pwrake
     def start_threads
       Thread.abort_on_exception = true
       @threads = []
+      @exit_task = {}
       t_intvl = Pwrake.application.pwrake_options['THREAD_CREATE_INTERVAL']
       @shell_set.each do |c|
         tc0 = Time.now
@@ -78,7 +79,9 @@ module Pwrake
     end
 
     def thread_loop(conn,last=nil)
-      @task_queue.reserve(last) if last
+      if last
+        @exit_task[last] = Thread.current
+      end
       hint = (conn) ? conn.host : nil
       standard_exception_handling do
         while true
@@ -88,7 +91,9 @@ module Pwrake
 	  time_deq = Time.now - time_start
           Log.debug "--- Master#thread_loop deq t=#{t.inspect} time=#{time_deq}sec"
           t.pw_invoke
-          return if t == last
+          if th = @exit_task.delete(t)
+            @task_queue.thread_end(th)
+          end
         end
       end
     end

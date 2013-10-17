@@ -209,6 +209,7 @@ module Pwrake
       @mutex = Mutex.new
       @cond = ConditionVariable.new
       @halt = false
+      @th_end = {}
       prio = Pwrake.application.pwrake_options['NOACTION_QUEUE_PRIORITY'] || 'fifo'
       case prio
       when /fifo/i
@@ -242,7 +243,9 @@ module Pwrake
       @mutex.synchronize do
         t = Time.now
         while true
-          if @halt
+          if @th_end.delete(Thread.current)
+            return false
+          elsif @halt
             @cond.wait @mutex
           elsif @que.empty?
             if @finished
@@ -306,6 +309,11 @@ module Pwrake
       @cond.broadcast
     end
 
+    def thread_end(th)
+      @th_end[th] = true
+      @cond.broadcast
+    end
+
     def stop
       clear
       finish
@@ -319,10 +327,8 @@ module Pwrake
       @finished = false
       @halt = false
       @mutex = Mutex.new
-      @th_end = []
+      @th_end = {}
       @enable_steal = true
-      @reservation = {}
-      @reserved_q = {}
       @q_noaction = NoActionQueue.new
       pri = Pwrake.application.pwrake_options['QUEUE_PRIORITY'] || "RANK"
       case pri
@@ -350,10 +356,6 @@ module Pwrake
     attr_reader :mutex
     attr_accessor :enable_steal
 
-    def reserve(item)
-      @reservation[item] = Thread.current
-    end
-
     def halt
       @q_noaction.halt
       @mutex.lock
@@ -371,17 +373,13 @@ module Pwrake
       ret = nil
       if condition
         halt
-	begin
+        begin
           ret = yield
-	ensure
+        ensure
           resume
         end
       else
-	ret = yield
-      end
-      @reserved_q.keys.each do |th|
-        Log.debug "--- run #{th}";
-        th.run
+        ret = yield
       end
       ret
     end
@@ -393,26 +391,18 @@ module Pwrake
       if item.actions.empty?
         @q_noaction.enq(item)
       elsif @halt
-	enq_body(item)
+        enq_body(item)
       else
         @mutex.synchronize do
-	  enq_body(item)
-	  @cv.signal(item.suggest_location)
+          enq_body(item)
+          @cv.signal(item.suggest_location)
         end
       end
-      @reserved_q.keys.each{|th|
-        Log.debug "--- run #{th}";
-        th.run
-      }
       Log.debug "--- TQ#enq #{item.name} enq_time=#{Time.now-t0}"
     end
 
     def enq_body(item)
-      if th = @reservation[item]
-	@reserved_q[th] = item
-      else
-	enq_impl(item)
-      end
+      enq_impl(item)
     end
 
     def enq_impl(t)
@@ -432,8 +422,7 @@ module Pwrake
       loop do
         @mutex.synchronize do
           t0 = Time.now
-          if @th_end.first == Thread.current
-            @th_end.shift
+          if @th_end.delete(Thread.current)
             return false
 
           elsif @halt
@@ -441,17 +430,11 @@ module Pwrake
             @cv.wait(@mutex)
             n = 0
 
-          elsif item = @reserved_q.delete(Thread.current)
-            Log.debug "--- deq from reserved_q=#{item.inspect}"
-            return item
-
           elsif empty? # no item in queue
-            #Log.debug "--- empty=true in #{self.class}#deq @finished=#{@finished.inspect}"
             if @finished
-	      @cv.signal
+              @cv.signal
               return false
             end
-            #Log.debug "--- waiting in #{self.class}#deq @finished=#{@finished.inspect}"
             @cv.wait(@mutex)
             n = 0
 
@@ -461,11 +444,9 @@ module Pwrake
               Log.debug "--- TQ#deq #{t_inspect} deq_time=#{Time.now-t0}"
               return t
             end
-            #@cv.signal([hint])
             n += 1
           end
         end
-        #Thread.pass
       end
     end
 
@@ -478,12 +459,12 @@ module Pwrake
       @q_noaction.clear
       @q_input.clear
       @q_later.clear
-      @reserved_q.clear
     end
 
     def empty?
-      @q_noaction.empty? && @q_input.empty? &&
-        @q_later.empty? && @reserved_q.empty?
+      @q_noaction.empty? &&
+        @q_input.empty? &&
+        @q_later.empty?
     end
 
     def finish
@@ -502,8 +483,9 @@ module Pwrake
     end
 
     def thread_end(th)
-      @th_end.push(th)
+      @th_end[th] = true
       @cv.broadcast
+      @q_noaction.thread_end(th)
     end
 
     def after_check(tasks)
