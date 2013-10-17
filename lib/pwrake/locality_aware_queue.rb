@@ -272,7 +272,6 @@ module Pwrake
       @q.each{|h,q| q.clear}
       @q_remote.clear
       @q_later.clear
-      @reserved_q.clear
     end
 
     def empty?
@@ -280,7 +279,6 @@ module Pwrake
         @q_noaction.empty? &&
         @q_remote.empty? &&
         @q_later.empty? &&
-        @reserved_q.empty?
     end
 
     def finish
