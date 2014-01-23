@@ -79,6 +79,47 @@ module Pwrake
   end
 
 
+  # LIFO + HRF
+  class LifoHrfQueueArray < Array
+    def initialize(n)
+      @n = (n>0) ? n : 1
+      @count = []
+    end
+
+    def push(t)
+      super(t)
+      r = t.rank
+      @count[r] = (@count[r]||0) + 1
+    end
+
+    def shift
+      if empty?
+        return nil
+      end
+      (@count.size-1).downto(0) do |r|
+        c = @count[r]
+        if c && c>0
+          t = (c<=@n) ? pop_last_rank(r) : pop
+          @count[t.rank] -= 1
+          return t
+        end
+      end
+      nil
+    end
+
+    def pop_last_rank(r)
+      (size-1).downto(0) do |i|
+        t = at[i]
+        if t.rank == r
+          delete_at(i)
+          return t
+        end
+      end
+      nil
+    end
+  end
+
+
   # Rank-Even Last In First Out
   class RankQueueArray
     def initialize(n)
@@ -336,6 +377,8 @@ module Pwrake
         @array_class = FifoQueueArray # Array # Fifo
       when /lifo/i
         @array_class = LifoQueueArray
+      when /lihr/i
+        @array_class = LifoHrfQueueArray
       when /rank/i
         @array_class = RankQueueArray
       else
