@@ -7,7 +7,32 @@ module Pwrake
   end
 
 
-  class LocalityConditionVariable < ConditionVariable
+  class LocalityConditionVariable
+
+    # ConditionVariable from lib/thread.rb
+    def initialize
+      @waiters = {}
+      @waiters_mutex = Mutex.new
+    end
+
+    def wait(mutex, timeout=nil)
+      Thread.handle_interrupt(StandardError => :never) do
+        begin
+          Thread.handle_interrupt(StandardError => :on_blocking) do
+            @waiters_mutex.synchronize do
+              @waiters[Thread.current] = true
+            end
+            mutex.sleep timeout
+          end
+        ensure
+          @waiters_mutex.synchronize do
+            @waiters.delete(Thread.current)
+          end
+        end
+      end
+      self
+    end
+
     def signal(hints=nil)
       if hints.nil?
         super()
