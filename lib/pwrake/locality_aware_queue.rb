@@ -6,15 +6,22 @@ module Pwrake
     end
   end
 
-
-  class LocalityConditionVariable
-
-    # ConditionVariable from lib/thread.rb
+  # copy from ruby's thread.rb
+  class ConditionVariable
+    #
+    # Creates a new ConditionVariable
+    #
     def initialize
       @waiters = {}
       @waiters_mutex = Mutex.new
     end
 
+    #
+    # Releases the lock held in +mutex+ and waits; reacquires the lock on wakeup.
+    #
+    # If +timeout+ is given, this method returns after +timeout+ seconds passed,
+    # even if no other thread doesn't signal.
+    #
     def wait(mutex, timeout=nil)
       Thread.handle_interrupt(StandardError => :never) do
         begin
@@ -32,6 +39,44 @@ module Pwrake
       end
       self
     end
+
+    #
+    # Wakes up the first thread in line waiting for this lock.
+    #
+    def signal
+      Thread.handle_interrupt(StandardError => :on_blocking) do
+        begin
+          t, _ = @waiters_mutex.synchronize { @waiters.shift }
+          t.run if t
+        rescue ThreadError
+          retry # t was already dead?
+        end
+      end
+      self
+    end
+
+    #
+    # Wakes up all threads waiting for this lock.
+    #
+    def broadcast
+      Thread.handle_interrupt(StandardError => :on_blocking) do
+        threads = nil
+        @waiters_mutex.synchronize do
+          threads = @waiters.keys
+          @waiters.clear
+        end
+        for t in threads
+          begin
+            t.run
+          rescue ThreadError
+          end
+        end
+      end
+      self
+    end
+  end
+
+  class LocalityConditionVariable < ConditionVariable
 
     def signal(hints=nil)
       if hints.nil?
