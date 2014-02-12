@@ -109,7 +109,7 @@ module Pwrake
 
     def pop_last_rank(r)
       (size-1).downto(0) do |i|
-        t = at[i]
+        t = at(i)
         if t.rank == r
           delete_at(i)
           return t
