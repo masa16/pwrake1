@@ -63,6 +63,8 @@ EOL
       @elap = @end_time - @start_time
       read_elap_each_cmd
       make_cmd_stat
+
+      @stat = TaskStat.new(@task_file,@sh_table)
     end
 
     attr_reader :base, :ncore, :elap
@@ -142,9 +144,11 @@ EOL
 
     def tr_count(x,y)
       sum = x+y
+      xp = x*100.0/sum
+      yp = y*100.0/sum
       td = "<td align='right' valign='top'>"
-      m  = td + "%s<br/>%.2f%%</td>" % [format_comma(x),x*100.0/sum]
-      m << td + "%s<br/>%.2f%%</td>" % [format_comma(y),y*100.0/sum]
+      m  = td + '%s<br/>''%.2f%%</td>' % [format_comma(x),xp]
+      m << td + '%s<br/>''%.2f%%</td>' % [format_comma(y),yp]
       m << td + "%s</td>" % format_comma(sum)
       m
     end
@@ -192,7 +196,6 @@ EOL
       html << "<table>\n"
       html << "<img src='./#{File.basename(histogram_plot)}' align='top'/></br>\n"
 
-      task_locality
       html << "<h2>Locality statistics</h2>\n"
       html << "<table>\n"
 
@@ -216,44 +219,25 @@ EOL
       html << "<th>local</th><th>remote</th><th>total</th>"
       html << "<th>local</th><th>remote</th><th>total</th>"
       html << "</tr>\n"
-      n_same_input     = 0
-      size_same_input  = 0
-      n_diff_input     = 0
-      size_diff_input  = 0
-      n_same_output    = 0
-      size_same_output = 0
-      n_diff_output    = 0
-      size_diff_output = 0
-      elap_host = 0
-      @exec_hosts.each do |h|
+      @stat.exec_hosts.each do |h|
         html << "<tr><td>#{h}</td>"
-        html << "<td align='right'>%.3f</td>" % @elap_host[h]
+        html << "<td align='right'>%.3f</td>" % @stat[h,nil,:elap]
         html << "<td></td>"
-        html << tr_count(@n_same_input[h],@n_diff_input[h])
-        html << tr_count(@size_same_input[h],@size_diff_input[h])
+        html << tr_count(@stat[h,true,:in_num],@stat[h,false,:in_num])
+        html << tr_count(@stat[h,true,:in_size],@stat[h,false,:in_size])
         html << "<td></td>"
-        html << tr_count(@n_same_output[h],@n_diff_output[h])
-        html << tr_count(@size_same_output[h],@size_diff_output[h])
-
+        html << tr_count(@stat[h,true,:out_num],@stat[h,false,:out_num])
+        html << tr_count(@stat[h,true,:out_size],@stat[h,false,:out_size])
         html << "</tr>\n"
-        n_same_input     += @n_same_input[h]
-        size_same_input  += @size_same_input[h]
-        n_diff_input     += @n_diff_input[h]
-        size_diff_input  += @size_diff_input[h]
-        n_same_output    += @n_same_output[h]
-        size_same_output += @size_same_output[h]
-        n_diff_output    += @n_diff_output[h]
-        size_diff_output += @size_diff_output[h]
-        elap_host += @elap_host[h]
       end
       html << "<tr><td>total</td>"
-      html << "<td align='right'>%.3f</td>" % elap_host
+      html << "<td align='right'>%.3f</td>" % @stat.total(nil,:elap)
       html << "<td></td>"
-      html << tr_count(n_same_input,n_diff_input)
-      html << tr_count(size_same_input,size_diff_input)
+      html << tr_count(@stat.total(true,:in_num),@stat.total(false,:in_num))
+      html << tr_count(@stat.total(true,:in_size),@stat.total(false,:in_size))
       html << "<td></td>"
-      html << tr_count(n_same_output,n_diff_output)
-      html << tr_count(size_same_output,size_diff_output)
+      html << tr_count(@stat.total(true,:out_num),@stat.total(false,:out_num))
+      html << tr_count(@stat.total(true,:out_size),@stat.total(false,:out_size))
 
       html << "</tr>\n"
       html << "<table>\n"
@@ -262,63 +246,11 @@ EOL
       File.open(@html_file,"w") do |f|
         f.puts html
       end
-      puts "generate "+@html_file
+      #puts "generate "+@html_file
+
+      printf "%s,%d,%d,%d,%d\n",@html_file, @stat.total(true,:in_num),@stat.total(false,:in_num),@stat.total(true,:in_size),@stat.total(false,:in_size)
     end
 
-    def task_locality
-      @task_table = CSV.read(@task_file,:headers=>true)
-      file_size = {}
-      file_host = {}
-      @task_table.each do |row|
-        name = row['task_name']
-        file_size[name] = row['file_size'].to_i
-        file_host[name] = (row['file_host']||'').split('|')
-      end
-
-      @n_same_output   = Hash.new(0)
-      @size_same_output= Hash.new(0)
-      @n_diff_output   = Hash.new(0)
-      @size_diff_output= Hash.new(0)
-      @n_same_input    = Hash.new(0)
-      @size_same_input = Hash.new(0)
-      @n_diff_input    = Hash.new(0)
-      @size_diff_input = Hash.new(0)
-      h = {}
-      @task_table.each do |row|
-        if row['executed']=='1'
-          name = row['task_name']
-          exec_host = row['exec_host']
-          h[exec_host] = true
-          if file_host[name].include?(exec_host)
-            @n_same_output[exec_host] += 1
-            @size_same_output[exec_host] += file_size[name]
-          else
-            @n_diff_output[exec_host] += 1
-            @size_diff_output[exec_host] += file_size[name]
-          end
-          preq_files = (row['preq']||'').split('|')
-          preq_files.each do |preq|
-            if (sz=file_size[preq]) && sz > 0
-              if file_host[preq].include?(exec_host)
-                @n_same_input[exec_host] += 1
-                @size_same_input[exec_host] += sz
-              else
-                @n_diff_input[exec_host] += 1
-                @size_diff_input[exec_host] += sz
-              end
-            end
-          end
-        end
-      end
-      @exec_hosts = h.keys.sort
-
-      @elap_host = Hash.new(0)
-      @sh_table.each do |row|
-        if (h = row['host']) && (t = row['elap_time'])
-          @elap_host[h] += t.to_f
-        end
-      end
-    end
 
     def histogram_plot
       command_list = []
@@ -357,7 +289,72 @@ set title 'histogram of elapsed time'"
         hist_image
       end
     end
+  end
 
+  class TaskStat
+
+    def initialize(task_file, sh_table)
+      @task_table = CSV.read(task_file,:headers=>true)
+      @count = Hash.new(0)
+      task_locality
+      stat_sh_table(sh_table)
+    end
+
+    attr_reader :exec_hosts
+
+    def count(exec_host, loc, key, val)
+      @count[[exec_host,loc,key]] += val
+      @count[[loc,key]] += val
+    end
+
+    def total(loc,key)
+      @count[[loc,key]]
+    end
+
+    def [](exec_host,loc,key)
+      @count[[exec_host,loc,key]]
+    end
+
+    def task_locality
+      file_size = {}
+      file_host = {}
+      h = {}
+      @task_table.each do |row|
+        name            = row['task_name']
+        file_size[name] = row['file_size'].to_i
+        file_host[name] = (row['file_host']||'').split('|')
+        h[row['exec_host']] = true
+      end
+      @exec_hosts = h.keys.sort
+
+      @task_table.each do |row|
+        if row['executed']=='1'
+          name      = row['task_name']
+          exec_host = row['exec_host']
+          loc = file_host[name].include?(exec_host)
+          count(exec_host, loc, :out_num, 1)
+          count(exec_host, loc, :out_size, file_size[name])
+
+          preq_files = (row['preq']||'').split('|')
+          preq_files.each do |preq|
+            sz = file_size[preq]
+            if sz && sz > 0
+              loc = file_host[preq].include?(exec_host)
+              count(exec_host, loc, :in_num, 1)
+              count(exec_host, loc, :in_size, sz)
+            end
+          end
+        end
+      end
+    end
+
+    def stat_sh_table(sh_table)
+      sh_table.each do |row|
+        if (h = row['host']) && (t = row['elap_time'])
+          count(h, nil, :elap, t.to_f)
+        end
+      end
+    end
 
   end
 end
