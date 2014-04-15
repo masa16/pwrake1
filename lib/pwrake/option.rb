@@ -48,6 +48,7 @@ module Pwrake
         'NUM_NOACTION_THREADS', # default=4 when gfarm, else 1
         'STEAL_WAIT',
         'STEAL_WAIT_MAX',
+        'GRAPH_PARTITION',
 
         ['HOSTFILE','HOSTS'],
         ['LOGFILE','LOG',

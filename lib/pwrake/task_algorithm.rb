@@ -57,12 +57,21 @@ module Pwrake
       @location = a
     end
 
+    def suggest_location=(a)
+      @suggest_location = a
+    end
+
     def task_id
       @task_id
     end
 
     def invoke_modify(*args)
       return if @already_invoked
+
+      if Pwrake.application.pwrake_options['GRAPH_PARTITION']
+        require 'pwrake/mcgp'
+        MCGP.graph_partition
+      end
 
       application.start_worker
 
