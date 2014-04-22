@@ -33,36 +33,57 @@ module Pwrake
 
       @count = 0
 
-      @depth_hist = []
+      @depth_hist = [0]
 
       @gviz_nodes = []
       @gviz_edges = []
       @edge_list = []
+      @input_files = {}
+
+      @hosts.each do |host|
+        push_vertex(host)
+        @vertex_depth[host] = 0
+      end
     end
 
     def trace( name = "default", target = nil )
 
       task = Rake.application[name]
+      depth = 0
 
-      if task.kind_of?(Rake::FileTask) and task.prerequisites.size > 0
-        push_vertex( name )
-        push_edge( name, target )
-        target = name
+      #puts "#{task.class.inspect} #{name}"
+      if task.kind_of?(Rake::FileTask)
+        if File.file?(name)
+          #puts "File.exist #{name}"
+          @input_files[name] = (@input_files[name] || []) | [target]
+          if task.location.nil?
+            application.postprocess(task)
+          end
+          task.location.each do |host|
+            if @hosts.include?(host)
+              push_edge( host, target )
+            end
+          end
+          @depth_hist[depth] += 1
+          return depth
+        else
+          push_vertex( name )
+          push_edge( name, target )
+          target = name
+        end
       end
 
       if !@traced[name]
         @traced[name] = true
-        depth = 0
 
         task.prerequisites.each do |prereq|
           d = trace( prereq, target )
           depth = d if d and d > depth
         end
 
-        if task.kind_of?(Rake::FileTask) and task.prerequisites.size > 0
+        if task.kind_of?(Rake::FileTask)
           depth += 1
-          hist = @depth_hist[depth] || 0
-          @depth_hist[depth] = hist + 1
+          @depth_hist[depth] = (@depth_hist[depth] || 0) + 1
         end
 
         @vertex_depth[name] = depth
@@ -158,13 +179,28 @@ module Pwrake
       #p @part
     end
 
+
     def set_part
       @vertex_id2name.each_with_index do |name,idx|
-        i_part = @part[idx]
-        task = Rake.application[name]
-        host = @hosts[i_part]
-        task.suggest_location = [host]
-        #puts "task=#{task.inspect}, i_part=#{i_part}, host=#{host}"
+        if idx >= @n_part
+          i_part = @part[idx]
+          task = Rake.application[name]
+          host = @hosts[i_part]
+          task.suggest_location = [host]
+          #puts "task=#{task.inspect}, i_part=#{i_part}, host=#{host}"
+        end
+      end
+      @input_files.each do |file,targets|
+        host_list = {}
+        targets.each do |name|
+          host = @hosts[@part[@vertex_name2id[name]]]
+          host_list[host] = true
+        end
+        host_list.each_key do |host|
+          cmd="gfrep -N 1 -D #{host} #{file}"
+          puts cmd
+          system cmd
+        end
       end
     end
 
