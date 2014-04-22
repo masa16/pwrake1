@@ -78,33 +78,88 @@ module Pwrake
     end
   end
 
+  class RankCounter
+    def initialize
+      @ntask = []
+      @nproc = 0
+      @mutex = Mutex.new
+    end
+
+    def add_nproc(n)
+      @mutex.synchronize do
+        @nproc += n
+      end
+    end
+
+    def incr(r)
+      @mutex.synchronize do
+        @ntask[r] = (@ntask[r]||0) + 1
+      end
+    end
+
+    def decr(r)
+      @mutex.synchronize do
+        @ntask[r] -= 1
+      end
+    end
+
+    def get_task
+      @mutex.synchronize do
+        (@ntask.size-1).downto(0) do |r|
+          c = @ntask[r]
+          if c && c>0
+            t = yield(c, @nproc, r)
+            #t = (c<=@n) ? pop_last_rank(r) : pop
+            @ntask[t.rank] -= 1
+            return t
+          end
+        end
+      end
+      nil
+    end
+  end
 
   # LIFO + HRF
   class LifoHrfQueueArray < Array
+    RANK_COUNTER = RankCounter.new
+
     def initialize(n)
       @n = (n>0) ? n : 1
-      @count = []
+      # @count = []
+      @rc = RANK_COUNTER
+      @rc.add_nproc(@n)
     end
 
     def push(t)
       super(t)
       r = t.rank
-      @count[r] = (@count[r]||0) + 1
+      # @count[r] = (@count[r]||0) + 1
+      @rc.incr(r)
     end
 
     def shift
       if empty?
         return nil
       end
-      (@count.size-1).downto(0) do |r|
-        c = @count[r]
-        if c && c>0
-          t = (c<=@n) ? pop_last_rank(r) : pop
-          @count[t.rank] -= 1
-          return t
+      @rc.get_task do |c,n,r|
+        t = nil
+        if c<=n
+          t = pop_last_rank(r)
         end
+        if t.nil?
+          t = pop
+        end
+        t
       end
-      nil
+      # (@count.size-1).downto(0) do |r|
+      #   c = @count[r]
+      #   if c && c>0
+      #     t = (c<=@n) ? pop_last_rank(r) : pop
+      #     @count[t.rank] -= 1
+      #     return t
+      #   end
+      # end
+      # nil
     end
 
     def pop_last_rank(r)

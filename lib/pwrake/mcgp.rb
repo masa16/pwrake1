@@ -190,6 +190,7 @@ module Pwrake
           #puts "task=#{task.inspect}, i_part=#{i_part}, host=#{host}"
         end
       end
+      return
       @input_files.each do |file,targets|
         host_list = {}
         targets.each do |name|
