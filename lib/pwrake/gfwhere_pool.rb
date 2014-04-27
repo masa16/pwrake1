@@ -23,7 +23,6 @@ module Pwrake
             return w if w.acquire
           end
           # wait for end of work in @pool
-          print "wait\n"
           @cond_pool.wait(@mutex)
         end
       end
