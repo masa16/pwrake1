@@ -12,18 +12,22 @@ module Pwrake
       super()
     end
 
+    def shift
+      pop
+    end
+
     def push(t)
-      task_id = t.task_id
-      if empty? || last.task_id <= task_id
+      priority = t.priority
+      if empty? || last.priority <= priority
         super(t)
-      elsif first.task_id > task_id
+      elsif first.priority > priority
         unshift(t)
       else
         lower = 0
         upper = size-1
         while lower+1 < upper
           mid = ((lower + upper) / 2).to_i
-          if self[mid].task_id <= task_id
+          if self[mid].priority <= priority
             lower = mid
           else
             upper = mid
@@ -37,23 +41,23 @@ module Pwrake
       if size < 40
         return super(t)
       end
-      task_id = t.task_id
-      if last.task_id < task_id || first.task_id > task_id
+      priority = t.priority
+      if last.priority < priority || first.priority > priority
         nil
       else
         lower = 0
         upper = size-1
         while lower+1 < upper
           mid = ((lower + upper) / 2).to_i
-          if self[mid].task_id < task_id
+          if self[mid].priority < priority
             lower = mid
           else
             upper = mid
           end
         end
         mid = upper
-        if self[mid].task_id == task_id
-          Log.debug "--- TQA#index=#{mid}, task_id=#{task_id}"
+        if self[mid].priority == priority
+          Log.debug "--- TQA#index=#{mid}, priority=#{priority}"
           mid
         end
       end
@@ -97,12 +101,6 @@ module Pwrake
       end
     end
 
-    def decr(r)
-      @mutex.synchronize do
-        @ntask[r] -= 1
-      end
-    end
-
     def get_task
       @mutex.synchronize do
         (@ntask.size-1).downto(0) do |r|
@@ -111,6 +109,7 @@ module Pwrake
             t = yield(c, @nproc, r)
             #t = (c<=@n) ? pop_last_rank(r) : pop
             @ntask[t.rank] -= 1
+            Log.debug "--- RankCount rank=#{r} nproc=#{@nproc} count=#{c} t.rank=#{t.rank} t.name=#{t.name}"
             return t
           end
         end
@@ -119,47 +118,30 @@ module Pwrake
     end
   end
 
-  # LIFO + HRF
-  class LifoHrfQueueArray < Array
-    RANK_COUNTER = RankCounter.new
+  # HRF mixin module
+  module HrfQueue
 
-    def initialize(n)
-      @n = (n>0) ? n : 1
-      # @count = []
-      @rc = RANK_COUNTER
-      @rc.add_nproc(@n)
+    def hrf_init(n=nil)
+      @nproc = n || 0
+      @count = []
     end
 
-    def push(t)
-      super(t)
+    def hrf_push(t)
       r = t.rank
-      # @count[r] = (@count[r]||0) + 1
-      @rc.incr(r)
+      @count[r] = (@count[r]||0) + 1
     end
 
-    def shift
-      if empty?
-        return nil
-      end
-      @rc.get_task do |c,n,r|
-        t = nil
-        if c<=n
-          t = pop_last_rank(r)
+    def hrf_get
+      (@count.size-1).downto(0) do |r|
+        c = @count[r]
+        if c && c>0
+          t = (c <= @nproc) ? pop_last_rank(r) : pop_super
+          @count[t.rank] -= 1
+          return t
         end
-        if t.nil?
-          t = pop
-        end
-        t
       end
-      # (@count.size-1).downto(0) do |r|
-      #   c = @count[r]
-      #   if c && c>0
-      #     t = (c<=@n) ? pop_last_rank(r) : pop
-      #     @count[t.rank] -= 1
-      #     return t
-      #   end
-      # end
-      # nil
+      raise "no element"
+      nil
     end
 
     def pop_last_rank(r)
@@ -171,6 +153,54 @@ module Pwrake
         end
       end
       nil
+    end
+  end
+
+  # LIFO + HRF
+  class LifoHrfQueueArray < Array
+    include HrfQueue
+
+    def initialize(n)
+      super()
+      hrf_init(n)
+    end
+
+    def push(t)
+      super(t)
+      hrf_push(t)
+    end
+
+    def shift
+      return nil if empty?
+      hrf_get
+    end
+
+    def pop_super
+      pop
+    end
+  end
+
+  # Priority + HRF
+  class PriorityHrfQueueArray < PriorityQueueArray
+    include HrfQueue
+
+    def initialize(n)
+      super(n)
+      hrf_init(n)
+    end
+
+    def push(t)
+      super(t)
+      hrf_push(t)
+    end
+
+    def shift
+      return nil if empty?
+      hrf_get
+    end
+
+    def pop_super
+      pop
     end
   end
 
@@ -426,7 +456,7 @@ module Pwrake
       @q_noaction = NoActionQueue.new
       pri = Pwrake.application.pwrake_options['QUEUE_PRIORITY'] || "RANK"
       case pri
-      when /dfs/i
+      when /prio/i
         @array_class = PriorityQueueArray
       when /fifo/i
         @array_class = FifoQueueArray # Array # Fifo
@@ -434,6 +464,8 @@ module Pwrake
         @array_class = LifoQueueArray
       when /lihr/i
         @array_class = LifoHrfQueueArray
+      when /prhr/i
+        @array_class = PriorityHrfQueueArray
       when /rank/i
         @array_class = RankQueueArray
       else
