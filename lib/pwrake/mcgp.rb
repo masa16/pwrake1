@@ -56,8 +56,8 @@ module Pwrake
         if File.file?(name)
           #puts "File.exist #{name}"
           @input_files[name] = (@input_files[name] || []) | [target]
-          if task.location.nil?
-            application.postprocess(task)
+          if task.location.empty?
+            Pwrake.application.postprocess(task)
           end
           task.location.each do |host|
             if @hosts.include?(host)
@@ -190,18 +190,21 @@ module Pwrake
           #puts "task=#{task.inspect}, i_part=#{i_part}, host=#{host}"
         end
       end
-      return
+
+      return # no gfrep
+
+      host_list = {}
       @input_files.each do |file,targets|
-        host_list = {}
         targets.each do |name|
           host = @hosts[@part[@vertex_name2id[name]]]
-          host_list[host] = true
+          host_list[host] ||= {}
+          host_list[host][file] = true
         end
-        host_list.each_key do |host|
-          cmd="gfrep -N 1 -D #{host} #{file}"
-          puts cmd
-          system cmd
-        end
+      end
+      host_list.each do |host,files|
+        cmd="gfrep -N 1 -D #{host} #{files.keys.join(' ')}"
+        puts cmd
+        system cmd
       end
     end
 
