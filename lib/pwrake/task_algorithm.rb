@@ -400,6 +400,29 @@ module Pwrake
       @suggest_location
     end
 
+    def priority
+      if has_input_file? && @priority.nil?
+        sum_tm = 0
+        sum_sz = 0
+        @prerequisites.each do |preq|
+          pq = application[preq]
+          sz = pq.file_size
+          if sz > 0
+            tm = pq.file_mtime - START_TIME
+            sum_tm += tm * sz
+            sum_sz += sz
+          end
+        end
+        if sum_sz > 0
+          @priority = sum_tm / sum_sz
+        else
+          @priority = 0
+        end
+        Log.debug "--- task_name=#{name} priority=#{@priority} sum_file_size=#{sum_sz}"
+      end
+      @priority || 0
+    end
+
     def input_file_mtime
       if has_input_file? && @input_file_mtime.nil?
         hash = Hash.new
