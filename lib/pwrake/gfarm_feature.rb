@@ -214,7 +214,7 @@ module Pwrake
     end
 
     def postprocess(t)
-      if t.kind_of? Rake::FileTask
+      if t.kind_of?(Rake::FileTask) && t.location.empty?
         t.location = @gfwhere_pool.work(t.name)
       end
     end
