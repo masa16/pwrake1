@@ -563,6 +563,7 @@ module Pwrake
               @cv.signal
               return false
             end
+            #@cv.signal
             @cv.wait(@mutex)
             n = 0
 

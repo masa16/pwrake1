@@ -108,6 +108,36 @@ module Pwrake
       self
     end
 
+
+    def signal_with_hints(hints)
+      if !Array===hints
+        raise ArgumentError,"argument must be an Array"
+      end
+      thread =
+        @waiters_mutex.synchronize do
+        th = nil
+        @waiters.each do |t,v|
+          Log.debug "--- LCV#signal_with_hints: t[:hint]=#{t[:hint]}"
+          if hints.include?(t[:hint])
+            th = t
+            break
+          end
+        end
+        Log.debug "--- LCV#signal_with_hints: hints=#{hints.inspect} thread_to_run=#{th.inspect} @waiters.size=#{@waiters.size}"
+        if th
+          @waiters.delete(th)
+        end
+        th
+      end
+      begin
+        thread.run if thread
+      rescue ThreadError
+        retry # t was already dead?
+      end
+      thread
+    end
+
+
     def broadcast(hints=nil)
       if hints.nil?
         super()
@@ -252,6 +282,14 @@ module Pwrake
         return t
       end
 
+      #hints = []
+      #@q.each do |h,q|
+      #  hints << h if !q.empty?
+      #end
+      #if (!hints.empty?) && @cv.signal_with_hints(hints)
+      #  return nil
+      #end
+
       if !@q_remote.empty?
         t = @q_remote.shift
         Log.info "-- deq_remote n=#{n} task=#{t.name} host=#{host}"
@@ -274,8 +312,9 @@ module Pwrake
         end
       end
 
-      m = [@steal_wait*(2**n), @steal_wait_max].min
-      @cv.wait(@mutex,m)
+      #m = [@steal_wait*(2**n), @steal_wait_max].min
+      #@cv.wait(@mutex,m)
+      @cv.wait(@mutex)
       nil
     end
 
@@ -307,8 +346,10 @@ module Pwrake
           end
         end
       end
-      Log.info "-- deq_steal max_host=#{max_host} max_num=#{max_num}"
-      deq_locate(max_host)
+      if max_num > 0
+        Log.info "-- deq_steal max_host=#{max_host} max_num=#{max_num}"
+        deq_locate(max_host)
+      end
     end
 
     def inspect_q
