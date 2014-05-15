@@ -48,7 +48,14 @@ EOL
         end
       end
 
-      @sh_table = CSV.read(@csv_file,:headers=>true)
+      begin
+        @sh_table = CSV.read(@csv_file,:headers=>true)
+      rescue
+        $stderr.puts "error in reading "+@csv_file
+        $stderr.puts $!, $@
+        exit
+      end
+
       h = {}
       @elap_sum = 0
       @sh_table.each do |row|
@@ -294,7 +301,13 @@ set title 'histogram of elapsed time'"
   class TaskStat
 
     def initialize(task_file, sh_table)
-      @task_table = CSV.read(task_file,:headers=>true)
+      begin
+        @task_table = CSV.read(task_file,:headers=>true)
+      rescue
+        $stderr.puts "error in reading "+task_file
+        $stderr.puts $!, $@
+        exit
+      end
       @count = Hash.new(0)
       task_locality
       stat_sh_table(sh_table)
