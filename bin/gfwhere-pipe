@@ -15,12 +15,11 @@ module Gfarm
     if LIBGFARM_PATH
       path = File.join(LIBGFARM_PATH,LIBGFARM_FILE)
     elsif x = find_executable('gfwhere')
-      path = File.join(File.dirname(x),"..","lib",LIBGFARM_FILE)
-    else
-      %w[/usr/lib64 /usr/lib].each do |dir|
-        x = File.join(dir,LIBGFARM_FILE)
-        if File.file?(x)
-          path = x
+      d = File.dirname(x)
+      %w[lib64 lib].each do |l|
+        f = File.join(d,"..",l,LIBGFARM_FILE)
+        if File.file?(f)
+          path = f
           break
         end
       end
