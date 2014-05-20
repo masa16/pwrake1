@@ -2,7 +2,6 @@
 
 require 'ffi'
 require 'singleton'
-require 'mkmf'
 
 module Gfarm
   class GfarmError < StandardError
@@ -10,6 +9,28 @@ module Gfarm
   GFARM_ERR_NO_ERROR = 0
 
   module FFI
+    def find_executable(name)
+      path = "/usr/local/bin:/usr/ucb:/usr/bin:/bin"
+      begin
+        $stderr = open("/dev/null","w")
+        path = ENV['PATH']
+      ensure
+        $stderr = STDERR
+      end
+      path = path.split(File::PATH_SEPARATOR)
+      path.each do |dir|
+        file = File.join(dir, name)
+        begin
+          stat = File.stat(file)
+        rescue SystemCallError
+      else
+          return file if stat.file? and stat.executable?
+        end
+      end
+      nil
+    end
+    module_function :find_executable
+
     LIBGFARM_PATH = nil
     LIBGFARM_FILE = "libgfarm.so"
     if LIBGFARM_PATH
@@ -125,12 +146,14 @@ gfarm = Gfarm.connection
 
 while path=$stdin.gets
   path.chomp!
+  $stdout.print path+"\n"
+  $stdout.flush
   begin
     ri = gfarm.replica_info_by_name(path)
     hosts = ri.number.times.map{|i| ri.nth_host(i) }
-    $stdout.print ri.realpath+":\n"+hosts.join("\n")+"\n\n"
+    $stdout.print ri.realpath+":\n"+hosts.join(" ")+"\n"
   rescue
-    $stdout.print path+":\n\n"
+    $stdout.print "Error: "+path+"\n"
   end
   $stdout.flush
 end
