@@ -12,7 +12,7 @@ module Gfarm
     def find_executable(name)
       path = "/usr/local/bin:/usr/ucb:/usr/bin:/bin"
       begin
-        $stderr = open("/dev/null","w")
+        $stderr = open(File::NULL,"w")
         path = ENV['PATH']
       ensure
         $stderr = STDERR
