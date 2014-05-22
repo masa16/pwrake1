@@ -1,4 +1,4 @@
-require "metis"
+require "rbmetis"
 
 module Pwrake
 
@@ -8,7 +8,9 @@ module Pwrake
       puts "hosts=#{hosts}"
       t1 = Time.now
       g = MetisGraph.new(hosts)
-      g.trace
+      Rake.application.top_level_tasks.each do |t|
+        g.trace(t)
+      end
       g.part_graph
       g.set_part
       t2 = Time.now
@@ -154,7 +156,7 @@ module Pwrake
         if j = map_depth[depth]
           w[j] = 1
         end
-        @vwgt.push(w)
+        @vwgt.concat(w)
         #p [@vertex_id2name[i],w]
       end
       [@xadj, @adjcny, @vwgt]
@@ -169,11 +171,9 @@ module Pwrake
         puts "@xadj=#{@xadj.inspect}"
         puts "@adjcny=#{@adjcny.inspect}"
         puts "@vwgt=#{@vwgt.inspect}"
+        puts "c=#{c}"
       end
-      @part = Metis.mc_part_graph_recursive2(c,@xadj,@adjcny, @vwgt,nil, tpw)
-      #@part = Metis.mc_part_graph(c,@xadj,@adjcny, @vwgt,nil, [1.03]*c, @n_part)
-      #@part = Metis.mc_part_graph_kway(c,@xadj,@adjcny, @vwgt,nil, [1.05]*c, @n_part)
-      #@part = Metis.mc_part_graph_kway(c,@xadj,@adjcny, @vwgt,nil, uvb, @n_part)
+      @part = RbMetis.part_graph_recursive(@xadj, @adjcny, @n_part, ncon:c, vwgt:@vwgt, tpwgt:tpw)
       t2 = Time.now
       Pwrake::Log.info "Time for Graph Partitioning: #{t2-t1} sec"
       #p @part
