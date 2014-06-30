@@ -49,6 +49,7 @@ module Pwrake
         'STEAL_WAIT',
         'STEAL_WAIT_MAX',
         'GRAPH_PARTITION',
+        'PLOT_PARTITION',
 
         ['HOSTFILE','HOSTS'],
         ['LOGFILE','LOG',
@@ -109,7 +110,6 @@ module Pwrake
     # ----- init -----
 
     def init_option
-      @host_group = []
       init_options
       init_pass_env
       init_logger
@@ -129,6 +129,7 @@ module Pwrake
     end
 
     attr_reader :core_list
+    attr_reader :host_list
     attr_reader :counter
     attr_reader :logfile
     attr_reader :queue_class
@@ -313,52 +314,13 @@ module Pwrake
       if @hostfile && @num_threads
         raise "Cannot set `hostfile' and `num_threads' simultaneously"
       end
-      if @hostfile
-        require "socket"
-        tmplist = []
-        File.open(@hostfile) do |f|
-          re = /\[\[([\w\d]+)-([\w\d]+)\]\]/o
-          while l = f.gets
-            l = $1 if /^([^#]*)#/ =~ l
-            host, ncore, group = l.split
-            if host
-              if re =~ host
-                hosts = ($1..$2).map{|i| host.sub(re,i)}
-              else
-                hosts = [host]
-              end
-              hosts.each do |host|
-                begin
-                  host = Socket.gethostbyname(host)[0]
-                rescue
-                  Log.info "-- FQDN not resoved : #{host}"
-                end
-                ncore = (ncore || 1).to_i
-                group = (group || 0).to_i
-                tmplist << ([host] * ncore.to_i)
-                @host_group[group] ||= []
-                @host_group[group] << host
-              end
-            end
-          end
-        end
-        #
-        @core_list = []
-        begin # alternative order
-          sz = 0
-          tmplist.each do |a|
-            @core_list << a.shift if !a.empty?
-            sz += a.size
-          end
-        end while sz>0
-        @num_threads = @core_list.size
-      else
-        @num_threads = 1 if !@num_threads
-        @core_list = ['localhost'] * @num_threads
-      end
-      Log.info "num_cores=#{@core_list.size}"
+      @host_list = HostList.new(@hostfile || @num_threads)
+      Log.info "num_cores=#{core_list.size}"
     end
 
+    def core_list
+      @host_list.core_list
+    end
 
     def set_filesystem
       if fn = @opts["PROFILE"]
