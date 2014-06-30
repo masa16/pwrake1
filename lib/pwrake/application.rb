@@ -48,7 +48,11 @@ module Pwrake
     end
 
     def core_list
-      @master.core_list
+      @master.host_list.core_list
+    end
+
+    def host_list
+      @master.host_list
     end
 
     def task_logger
