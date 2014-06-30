@@ -55,6 +55,22 @@ module Pwrake
 
     def location=(a)
       @location = a
+      @group = []
+      @location.each do |host|
+        @group |= [Pwrake.application.host_list.host2group[host]]
+      end
+    end
+
+    def group
+      @group ||= []
+    end
+
+    def group_id
+      @group_id
+    end
+
+    def group_id=(i)
+      @group_id = i
     end
 
     def suggest_location=(a)
@@ -148,6 +164,10 @@ module Pwrake
       shell.current_task = nil if shell
       pw_enq_subsequents
       Log.debug "--- pw_invoke (#{name}) enq_subseq time=#{Time.now-t} sec"
+    end
+
+    def get_file_stat
+      @file_stat ||= File::Stat.new(name)
     end
 
     def log_task(time_start)

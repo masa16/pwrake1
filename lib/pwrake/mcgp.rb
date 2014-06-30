@@ -1,78 +1,104 @@
 require "rbmetis"
+#require "pwrake/grviz"
 
 module Pwrake
 
   module MCGP
-    def graph_partition
-      hosts = Pwrake.application.core_list.sort.uniq
-      puts "hosts=#{hosts}"
+
+    def graph_partition(target=nil)
       t1 = Time.now
-      g = MetisGraph.new(hosts)
-      Rake.application.top_level_tasks.each do |t|
-        g.trace(t)
+      wgts = Pwrake.application.host_list.group_weight_sum
+      if wgts.size > 1
+        list = wgts.size.times.to_a
+        g = GraphTracer.new([list],[wgts]){|t| t.group}
+        trace(g,target)
+        g.part_graph_group
+        #g.write_dot('dag1.dot')
+        #return
       end
-      g.part_graph
-      g.set_part
+
+      #$debug2=true
+
+      list = Pwrake.application.host_list.group_hosts
+      wgts = Pwrake.application.host_list.group_core_weight
+      g = GraphTracer.new(list,wgts){|t| t.location}
+      trace(g,target)
+      g.part_graph_node
       t2 = Time.now
       Pwrake::Log.info "Time for TOTAL Graph Partitioning: #{t2-t1} sec"
+      #g.write_dot('dag2.dot')
+      #exit
     end
     module_function :graph_partition
+
+    def trace(g,target)
+      if target
+        g.trace(target)
+      else
+        Rake.application.top_level_tasks.each do |t|
+          g.trace(t)
+        end
+      end
+    end
+    module_function :trace
+
   end
 
 
-  class MetisGraph
+  class GraphTracer
 
-    def initialize(hosts)
-      @hosts = hosts
-      @n_part = @hosts.size
+    def initialize(loc_list, weight_list, &block)
+      if loc_list.size != weight_list.size
+        raise ArgumentError, "array size of args mismatch"
+      end
+      @loc_list = loc_list
+      @weight_list = weight_list
+      @n_part = @loc_list.size
+      @location_finder = block
       @traced = {}
-
-      @edges = []
-
-      @vertex_name2id = {}
-      @vertex_id2name = []
       @vertex_depth = {}
-
-      @count = 0
-
-      @depth_hist = [0]
-
-      @gviz_nodes = []
-      @gviz_edges = []
-      @edge_list = []
-      @input_files = {}
-
-      @hosts.each do |host|
-        push_vertex(host)
-        @vertex_depth[host] = 0
+      # @grviz = Grviz.new
+      @group_list = @n_part.times.map do |i|
+        GraphGroup.new(@loc_list[i],@weight_list[i],@vertex_depth,@grviz)
       end
     end
 
     def trace( name = "default", target = nil )
 
       task = Rake.application[name]
+      group_id = task.group_id || 0
+      group = @group_list[group_id]
+      loc_list = @loc_list[group_id]
       depth = 0
 
-      #puts "#{task.class.inspect} #{name}"
-      if task.kind_of?(Rake::FileTask)
+      if task.class == Rake::FileTask
+        tgid = target ? (Rake.application[target].group_id||0) : nil
+
         if File.file?(name)
-          #puts "File.exist #{name}"
-          @input_files[name] = (@input_files[name] || []) | [target]
-          if task.location.empty?
-            Pwrake.application.postprocess(task)
-          end
-          task.location.each do |host|
-            if @hosts.include?(host)
-              push_edge( host, target )
+          if tgid == group_id
+            locs = @location_finder.call(task)
+            if locs.empty?
+              Pwrake.application.postprocess(task)
+              locs = @location_finder.call(task)
             end
+            task.get_file_stat
+            fsz = task.file_size
+            if fsz > 100000
+              #puts "g=#{group_id}, task=#{name}, target=#{target}, fsz=#{fsz}, locs="+locs.join("|")
+              group.push_loc_edge( locs, name, target, fsz/10000 )
+            end
+          else
+            #puts "g=#{group_id}, task=#{name}, tgid=#{tgid}, target=#{target}"
           end
-          @depth_hist[depth] += 1
           return depth
-        else
-          push_vertex( name )
-          push_edge( name, target )
-          target = name
         end
+
+        group.push_vertex( name )
+        if tgid == group_id
+          #puts "g=#{group_id}, task=#{name}, target=#{target}"
+          group.push_edge( name, target, nil )
+        end
+        target = name
       end
 
       if !@traced[name]
@@ -83,9 +109,8 @@ module Pwrake
           depth = d if d and d > depth
         end
 
-        if task.kind_of?(Rake::FileTask)
+        if task.class == Rake::FileTask
           depth += 1
-          @depth_hist[depth] = (@depth_hist[depth] || 0) + 1
         end
 
         @vertex_depth[name] = depth
@@ -94,129 +119,322 @@ module Pwrake
       return @vertex_depth[name]
     end
 
-    def trim( name )
-      name = name.to_s
-      name = File.basename(name)
-      name.sub(/H\d+/,'').sub(/object\d+/,"")
+    def part_graph_group
+      @group_list.each do |g|
+        g.part_graph
+        g.set_group
+      end
     end
 
-    def push_vertex( name )
-      if @vertex_name2id[name].nil?
+    def part_graph_node
+      @group_list.each do |g|
+        g.part_graph
+        g.set_node
+      end
+    end
+
+    def write_dot(file)
+      @grviz.write(file)
+    end
+  end
+
+
+  class GraphGroup
+
+    def summation(a)
+      s = 0
+      a.each{|x| s+=x}
+      s
+    end
+
+    def normalize(a)
+      s = summation(a).to_f
+      (s==0) ? a : a.map{|x| x/s}
+    end
+
+    def average(a)
+      s = summation(a).to_f
+      (a.empty?) ? nil : s/a.size
+    end
+
+    def initialize(loc_list, weight_list, vertex_depth, grviz)
+      if loc_list.size != weight_list.size
+        raise ArgumentError, "array size mismatch"
+      end
+      @n_part = loc_list.size
+      a = [loc_list, weight_list].transpose
+      a.sort_by!{|x| x[1]}
+      b = a.transpose
+      @loc_list = b[0]
+      @tpwgts = normalize(b[1])
+
+      b = @tpwgts[0]
+      a = @tpwgts[-1]-b
+      if a/b > 1e-3
+        @host_wgts = @tpwgts.map{|x| (((x-b)/a*0.45+1)*1000).to_i}
+      else
+        @host_wgts = @tpwgts.map{|x| 1000}
+      end
+
+      @vertex_name2id = {}
+      @vertex_id2name = []
+      @edges = []
+      @file_sizes = []
+      @loc_files = {}
+      @count = 0
+
+      @vertex_depth = vertex_depth
+      @grviz = grviz
+
+      @loc_list.each do |loc|
+        push_vertex(loc)
+        @vertex_depth[loc] = 0
+      end
+    end
+
+    def push_loc_edge(locs, name, target, fsz)
+      locs.each do |loc|
+        if @loc_list.include?(loc)
+          push_edge(loc, target, fsz)
+          @loc_files[loc] ||= []
+          @loc_files[loc] << name
+        end
+      end
+      @file_sizes << fsz
+      #p [object_id,target,fsz]
+    end
+
+    def push_vertex(name)
+      if !@vertex_name2id.has_key?(name)
         @vertex_name2id[name] = @count
         @vertex_id2name[@count] = name
-
-        tag = "T#{@count}"
-        @gviz_nodes[@count] = "#{tag} [label=\"#{trim(name)}\", shape=box, style=filled, fillcolor=\"%s\"];"
-
+        @grviz.push_vertex(name) if @grviz
         @count += 1
       end
     end
 
-    def push_edge( name, target )
-      if target
+    def push_edge(name, target, weight)
+      if target and (weight.nil? or weight>0)
+        push_vertex(name)
+        push_vertex(target)
         v1 = @vertex_name2id[name]
         v2 = @vertex_name2id[target]
-        (@edges[v1] ||= []).push v2
-        (@edges[v2] ||= []).push v1
-
-        @gviz_edges.push "T#{v1} -> T#{v2};"
-        @edge_list.push [v1,v2]
+        (@edges[v1] ||= []).push [v2, weight]
+        (@edges[v2] ||= []).push [v1, weight]
+        @grviz.push_edge(name, target) if @grviz
       end
     end
 
     def part_graph
       @xadj = [0]
       @adjcny = []
+      @adjwgt = []
       @vwgt = []
+
+      depth_hist = []
+      @vertex_id2name.each do |name|
+        depth = @vertex_depth[name]
+        # puts "name=#{name}, depth=#{depth}"
+        depth_hist[depth] = (depth_hist[depth] || 0) + 1
+      end
+
       map_depth = []
-      uvb = []
+      ubv = []
       c = 0
-      @depth_hist.each do |x|
+      depth_hist.each do |x|
         if x and x>=@n_part
           map_depth << c
           c += 1
-          uvb << 1 + 2.0*@n_part/x
-          #uvb << ((x >= @n_part) ? 1.05 : 1.5)
+          ubv << 1 + 0.5*@n_part/x
+          #ubv << ((x >= @n_part) ? 1.05 : 1.5)
         else
           map_depth << nil
         end
       end
+      ubv[0] = 1.0005
 
-      Pwrake::Log.info @depth_hist.inspect
-      Pwrake::Log.info [c, map_depth].inspect
-      Pwrake::Log.info uvb.inspect
+      Pwrake::Log.info "loc_list=#{@loc_list}"
+      Pwrake::Log.info "partition_weights=#{@tpwgts}"
+      Pwrake::Log.info "ncon=#{c}"
+      Pwrake::Log.info "depth_hist=#{depth_hist.inspect}"
+      Pwrake::Log.info "ubvec=#{ubv.inspect}"
 
+      if @file_sizes.empty?
+        @edge_weight = 1
+      else
+        @edge_weight = average(@file_sizes).to_i*3
+      end
+      Pwrake::Log.info "default_edge_weight=#{@edge_weight}"
 
-      @count.times do |i|
-        @adjcny.concat(@edges[i].sort) if @edges[i]
+      @vertex_id2name.size.times do |i|
+        if edg = @edges[i]
+          edg.sort_by!{|x| x[0]}
+          @adjcny.concat(edg.map{|x| x[0]})
+          @adjwgt.concat(edg.map{|x| x[1] || @edge_weight})
+          # @adjwgt.concat(edg.map{|x| x[1] ? 0 : @edge_weight})
+        end
         @xadj.push(@adjcny.size)
+      end
 
-        depth = @vertex_depth[@vertex_id2name[i]]
+      @vertex_id2name.each_with_index do |name,i|
         w = Array.new(c,0)
-        if j = map_depth[depth]
-          w[j] = 1
+        if i < @n_part
+          w[0] = @host_wgts[i]
+          # puts "name=#{name}, w=#{w.inspect}"
+        else
+          depth = @vertex_depth[name]
+          if depth and (j = map_depth[depth])
+            w[j] = 1
+          end
         end
         @vwgt.concat(w)
-        #p [@vertex_id2name[i],w]
       end
-      [@xadj, @adjcny, @vwgt]
+
+      #  puts "@vertex_id2name[#{i}]=#{@vertex_id2name[i]}, depth=#{depth}, edges="+@edges[i].map{|x| @vertex_id2name[x[0]]}.join("|")
 
       t1 = Time.now
-      tpw = Array.new(@n_part,1.0/@n_part)
-      sum = 0.0; tpw.each{|x| sum+=x}
       if false
+        puts "@vertex_id2name.size=#{@vertex_id2name.size}"
+        if $debug2
+          @vertex_id2name.each_with_index{|x,i| puts "#{i} #{x} #{@edges[i].inspect}"}
+        end
+        puts "@edges.size=#{@edges.size}"
+        puts "ncon=#{c}"
+        puts "@n_part=#{@n_part}"
         puts "@xadj.size=#{@xadj.size}"
         puts "@adjcny.size/2=#{@adjcny.size/2}"
-        puts "tpw.sum=#{sum}"
-        puts "@xadj=#{@xadj.inspect}"
-        puts "@adjcny=#{@adjcny.inspect}"
-        puts "@vwgt=#{@vwgt.inspect}"
-        puts "c=#{c}"
+        puts "@adjwgt.size/2=#{@adjwgt.size/2}"
+        puts "@vwgt.size=#{@vwgt.size}"
+        puts "@vwgt.size/ncon=#{@vwgt.size/c}"
+        puts "depth_hist=#{depth_hist.inspect}"
+        puts "ubv=#{ubv.inspect}"
+        if $debug
+          puts "@xadj=#{@xadj.inspect}"
+          puts "@adjcny=#{@adjcny.inspect}"
+          puts "@adjwgt=#{@adjwgt.inspect}"
+          puts "@vwgt=#{@vwgt.inspect}"
+        end
+        #exit
       end
-      @part = RbMetis.part_graph_recursive(@xadj, @adjcny, @n_part, ncon:c, vwgt:@vwgt, tpwgt:tpw)
+      if defined? RbMetis
+        hw = normalize(@host_wgts)
+        tpw = []
+        s = "tpwgts=[\n"
+        @tpwgts.each_with_index do |x,i|
+          a = [hw[i]]+[x]*(c-1)
+          tpw.concat(a)
+          s += " ["+a.map{|x|"%.5f"%x}.join(", ")+"]\n"
+        end
+        s += "]"
+        Log.info s
+        options = RbMetis.default_options
+        RbMetis::OPTION_NITER
+        options[RbMetis::OPTION_NCUTS] = 30
+        options[RbMetis::OPTION_NSEPS] = 30
+        options[RbMetis::OPTION_NITER] = 10
+        @part = RbMetis.part_graph_recursive(@xadj, @adjcny, @n_part, ncon:c, vwgt:@vwgt, adjwgt:@adjwgt, tpwgts:tpw, ubvec:ubv, options:options)
+      else
+        puts "tpw=#{tpw.inspect}"
+        @part = Metis.mc_part_graph_recursive2(c, @xadj,@adjcny, @vwgt,nil, @tpwgts)
+      end
       t2 = Time.now
       Pwrake::Log.info "Time for Graph Partitioning: #{t2-t1} sec"
+      count_partition
+      #puts "Time for Graph Partitioning: #{t2-t1} sec"
+      #if $debug
       #p @part
+      #end
+    end
+
+    def count_partition
+      locs = Array.new(@n_part,nil)
+      @n_part.times do |i|
+        i_part = @part[i]
+        locs[i_part] ||= []
+        locs[i_part] << @vertex_id2name[i]
+      end
+      # p locs
+      sum = []
+      @vertex_id2name.each_with_index do |name,idx|
+        y = @vertex_depth[name]
+        x = @part[idx]
+        sum[y] ||= Array.new(@n_part,0)
+        sum[y][x] += 1
+      end
+      s = "partition count: \n"
+      s += sum.each_with_index.map do |row,idx|
+        " d=#{idx} "+row.inspect
+      end.join("\n")
+      #puts s
+      Log.info s
+      Log.info "@part[0:#{@n_part-1}]=#{@part[0...@n_part].inspect}"
+      sum[0].each{|i| raise RuntimeError,"Unequal partitioning" if i!=1}
     end
 
 
-    def set_part
+    def count_partition2(part)
+      sum = Array.new(0,0)
+      part.each do |x|
+        sum[x] ||= 0
+        sum[x] += 1
+      end
+      s = sum.each_with_index.map do |x,i|
+        "#{i}:#{x}"
+      end
+      puts "n_nodes=[ "+s.join(", ")+" ]"
+      puts "@part[0:#{@n_part-1}]=#{part[0...@n_part].inspect}"
+    end
+
+    def make_loc_list
+      rest = []
+      loc_list = []
+      @n_part.times do |i|
+        i_part = @part[i]
+        loc = @loc_list[i]
+        if loc_list[i_part]
+          rest << loc
+        else
+          loc_list[i_part] = loc
+        end
+      end
+      @n_part.times do |i|
+        unless loc_list[i]
+          loc_list[i] = rest.pop
+        end
+      end
+      loc_list
+    end
+
+
+    def set_group
+      loc_list = make_loc_list()
       @vertex_id2name.each_with_index do |name,idx|
         if idx >= @n_part
           i_part = @part[idx]
           task = Rake.application[name]
-          host = @hosts[i_part]
-          task.suggest_location = [host]
+          task.group_id = loc_list[i_part]
           #puts "task=#{task.inspect}, i_part=#{i_part}, host=#{host}"
         end
       end
-
-      return # no gfrep
-
-      host_list = {}
-      @input_files.each do |file,targets|
-        targets.each do |name|
-          host = @hosts[@part[@vertex_name2id[name]]]
-          host_list[host] ||= {}
-          host_list[host][file] = true
+      @loc_files.each do |gid,files|
+        files.each do |f|
+          task = Rake.application[f]
+          task.group_id = gid
+          # puts "gid=#{gid}, task=#{f}"
         end
       end
-      host_list.each do |host,files|
-        cmd="gfrep -N 1 -D #{host} #{files.keys.join(' ')}"
-        puts cmd
-        system cmd
-      end
     end
 
 
-    def part=(pg)
-      @part=pg
-    end
-
-    def p_vertex
-      @count.times do |i|
-        if @vertex_weight[i] > 0
-          puts "#{@vertex_weight[i]} #{@part[i]} #{@vertex_names[i]}"
+    def set_node
+      loc_list = make_loc_list()
+      @vertex_id2name.each_with_index do |name,idx|
+        if idx >= @n_part
+          i_part = @part[idx]
+          task = Rake.application[name]
+          host = loc_list[i_part]
+          task.suggest_location = [host]
+          #puts "task=#{task.inspect}, i_part=#{i_part}, host=#{host}"
         end
       end
     end
