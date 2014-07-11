@@ -231,15 +231,22 @@ module Pwrake
     end # class Throughput
 
 
-    def init_queue(core_list)
-      @host_count = Hash.new{0}
-      core_list.each{|h| @host_count[h] += 1}
-      @hosts = @host_count.keys
+    def init_queue(host_list)
+      @host_list = host_list
       @cv = LocalityConditionVariable.new
-      @throughput = Throughput.new
       @size = 0
       @q = {}
-      @host_count.each{|h,n| @q[h] = @array_class.new(n)}
+      @host_list.host_count.each{|h,n| @q[h] = @array_class.new(n)}
+      @q_group = {}
+      @host_list.group_hosts.each do |g|
+        other = @host_list.host_count.dup
+        q1 = {}
+        g.each{|h| q1[h] = @q[h]; other.delete(h)}
+        q2 = {}
+        other.each{|h,v| q2[h] = @q[h]}
+        a = [q1,q2]
+        g.each{|h| @q_group[h] = a}
+      end
       @q_remote = @array_class.new(0)
       @q_later = Array.new
       @enable_steal = !Pwrake.application.pwrake_options['DISABLE_STEAL']
@@ -337,19 +344,23 @@ module Pwrake
       # select a task based on many and close
       max_host = nil
       max_num  = 0
-      @q.each do |h,a|
-        if !a.empty?
-          d = a.size
-          if d > max_num
-            max_host = h
-            max_num  = d
+      @q_group[host].each do |qg|
+        qg.each do |h,a|
+          if !a.empty?
+            d = a.size
+            if d > max_num
+              max_host = h
+              max_num  = d
+            end
           end
         end
+        if max_num > 0
+          Log.info "-- deq_steal max_host=#{max_host} max_num=#{max_num}"
+          t = deq_locate(max_host)
+          return t if t
+        end
       end
-      if max_num > 0
-        Log.info "-- deq_steal max_host=#{max_host} max_num=#{max_num}"
-        deq_locate(max_host)
-      end
+      nil
     end
 
     def inspect_q
