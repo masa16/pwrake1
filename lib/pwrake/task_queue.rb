@@ -447,7 +447,7 @@ module Pwrake
 
   class TaskQueue
 
-    def initialize(core_list)
+    def initialize(host_list)
       @finished = false
       @halt = false
       @mutex = Mutex.new
@@ -472,12 +472,12 @@ module Pwrake
         raise RuntimeError,"unknown option for QUEUE_PRIORITY: "+pri
       end
       Log.debug "--- TQ#initialize @array_class=#{@array_class.inspect}"
-      init_queue(core_list)
+      init_queue(host_list)
     end
 
-    def init_queue(core_list)
+    def init_queue(host_list)
       @cv = TaskConditionVariable.new
-      @q_input = @array_class.new(core_list.size)
+      @q_input = @array_class.new(host_list.size)
       @q_later = Array.new
     end
 

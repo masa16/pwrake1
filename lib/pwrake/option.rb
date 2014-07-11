@@ -128,7 +128,6 @@ module Pwrake
       @counter = Counter.new
     end
 
-    attr_reader :core_list
     attr_reader :host_list
     attr_reader :counter
     attr_reader :logfile
@@ -315,11 +314,7 @@ module Pwrake
         raise "Cannot set `hostfile' and `num_threads' simultaneously"
       end
       @host_list = HostList.new(@hostfile || @num_threads)
-      Log.info "num_cores=#{core_list.size}"
-    end
-
-    def core_list
-      @host_list.core_list
+      Log.info "num_cores=#{@host_list.size}"
     end
 
     def set_filesystem

@@ -47,10 +47,6 @@ module Pwrake
       @master.start
     end
 
-    def core_list
-      @master.host_list.core_list
-    end
-
     def host_list
       @master.host_list
     end

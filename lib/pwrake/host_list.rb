@@ -16,6 +16,7 @@ module Pwrake
     attr_reader :host2group
     attr_reader :num_threads
     attr_reader :core_list
+    attr_reader :host_count
 
     def initialize(file=nil)
       @file = file
@@ -31,6 +32,10 @@ module Pwrake
         @num_threads = 1 if !@num_threads
         @core_list = ['localhost'] * @num_threads
       end
+    end
+
+    def size
+      @num_threads
     end
 
     def read_host(file)
@@ -68,6 +73,7 @@ module Pwrake
           end
         end
       end
+
       @core_list = []
       begin # alternative order
         sz = 0
@@ -76,6 +82,9 @@ module Pwrake
           sz += a.size
         end
       end while sz>0
+
+      @host_count = Hash.new{0}
+      core_list.each{|h| @host_count[h] += 1}
     end
 
   end

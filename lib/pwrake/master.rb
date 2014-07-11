@@ -36,9 +36,9 @@ module Pwrake
       return if @task_queue
       timer = Timer.new("start_worker")
       @finish_queue = Queue.new
-      @task_queue = @queue_class.new(core_list)
+      @task_queue = @queue_class.new(host_list)
       @shell_set = (1..@num_noaction_threads).map{ NoActionShell.new }
-      core_list.each_with_index do |h,i|
+      host_list.core_list.each_with_index do |h,i|
         @shell_set << @shell_class.new(h,@shell_opt)
       end
       start_threads
