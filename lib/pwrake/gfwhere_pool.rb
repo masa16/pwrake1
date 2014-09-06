@@ -94,8 +94,6 @@ module Pwrake
       while s = @io.gets
         s.chomp!
         case s
-        when ""
-          next
         when /^gfarm:\/\//
           next
         when /^Error:/
