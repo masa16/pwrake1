@@ -62,12 +62,9 @@ module Pwrake
               w = ncore * weight
               group = (group || 0).to_i
               tmplist << ([host] * ncore.to_i)
-              @group_hosts[group] ||= []
-              @group_hosts[group] << host
-              @group_core_weight[group] ||= []
-              @group_core_weight[group] << w
-              @group_weight_sum[group] ||= 0
-              @group_weight_sum[group] += w
+              (@group_hosts[group] ||= []) << host
+              (@group_core_weight[group] ||= []) << w
+              @group_weight_sum[group] = (@group_weight_sum[group]||0) + w
               @host2group[host] = group
             end
           end
