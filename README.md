@@ -3,7 +3,7 @@
 Parallel workflow extension for Rake
 * Author: Masahiro Tanaka
 
-([日本語README](https://github.com/masa16/pwrake/wiki/Pwrake.ja)),
+([README in Japanese](https://github.com/masa16/pwrake/wiki/Pwrake.ja)),
 ([GitHub Repository](https://github.com/masa16/pwrake))
 
 ## Features
@@ -99,7 +99,12 @@ Or, gem install:
         GNU_TIME          If true, obtains PROFILEs using GNU time
         PLOT_PARALLELISM  If true, plot parallelism using GNUPLOT
         FAILED_TARGET     ( rename(default) | delete | leave ) failed files
-        QUEUE_PRIORITY    ( DFS(default) | FIFO )
+        QUEUE_PRIORITY          RANK(default), FIFO, LIFO, LIHR
+        NOACTION_QUEUE_PRIORITY FIFO(default), LIFO, RAND
+        NUM_NOACTION_THREADS    default=4 when gfarm, else 1
+        THREAD_CREATE_INTERVAL  default=0.01 (sec)
+        HALT_QUEUE_WHILE_SEARCH true|false
+        GRAPH_PARTITION         true|false
 
   for Gfarm system:
 
@@ -111,22 +116,29 @@ Or, gem install:
         GFARM_BASEDIR     default="/tmp"
         GFARM_PREFIX      default="pwrake_$USER"
         GFARM_SUBDIR      default='/'
+        MAX_GFWHERE_WORKER  default=8
 
 ## Note for Gfarm
 
-* `gfwhere-pipe` command is required for file-affinity scheduling.
+* `gfwhere-pipe` script (included in Pwrake) is used for file-affinity scheduling.
+  This script requires Ruby/FFI (https://github.com/ffi/ffi). Install FFI by
 
-        wget https://gist.github.com/masa16/5787473/raw/6df5deeb80a4cea6b9d1d1ce01f390f65d650717/gfwhere-pipe.patch
-        cd gfarm-2.5.8.1
-        patch -p1 < ../gfwhere-pipe.patch
-        ./configure --prefix=...
-        make
-        make install
+        gem install ffi
+
+## For Graph Partitioning
+
+* Compile and Install METIS 5.1.0 (http://www.cs.umn.edu/~Emetis/). This requires CMake.
+
+* Install RbMetis (https://github.com/masa16/rbmetis) by
+
+        gem install rbmetis -- \
+         --with-metis-include=/usr/local/include \
+         --with-metis-lib=/usr/local/lib
 
 ## Tested Platform
 
-* Ruby 2.0.0
-* Rake 0.9.6
+* Ruby 2.1.4
+* Rake 10.1.0
 * CentOS 6.4
 
 ## Acknowledgment
