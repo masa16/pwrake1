@@ -83,6 +83,7 @@ module Pwrake
   end
 
   class RankCounter
+
     def initialize
       @ntask = []
       @nproc = 0
@@ -108,8 +109,10 @@ module Pwrake
           if c && c>0
             t = yield(c, @nproc, r)
             #t = (c<=@n) ? pop_last_rank(r) : pop
-            @ntask[t.rank] -= 1
-            Log.debug "--- RankCount rank=#{r} nproc=#{@nproc} count=#{c} t.rank=#{t.rank} t.name=#{t.name}"
+            if t
+              @ntask[t.rank] -= 1
+              Log.debug "--- RankCount rank=#{r} nproc=#{@nproc} count=#{c} t.rank=#{t.rank} t.name=#{t.name}"
+            end
             return t
           end
         end
@@ -127,8 +130,10 @@ module Pwrake
     end
 
     def hrf_push(t)
-      r = t.rank
-      @count[r] = (@count[r]||0) + 1
+      if t
+        r = t.rank
+        @count[r] = (@count[r]||0) + 1
+      end
     end
 
     def hrf_get
@@ -136,7 +141,9 @@ module Pwrake
         c = @count[r]
         if c && c>0
           t = (c <= @nproc) ? pop_last_rank(r) : pop_super
-          @count[t.rank] -= 1
+          if t
+            @count[t.rank] -= 1
+          end
           return t
         end
       end
@@ -147,7 +154,7 @@ module Pwrake
     def pop_last_rank(r)
       (size-1).downto(0) do |i|
         t = at(i)
-        if t.rank == r
+        if t && t.rank == r
           delete_at(i)
           return t
         end
@@ -207,6 +214,7 @@ module Pwrake
 
   # Rank-Even Last In First Out
   class RankQueueArray
+
     def initialize(n)
       @q = []
       @size = 0
@@ -214,7 +222,7 @@ module Pwrake
     end
 
     def push(t)
-      r = t.rank
+      r = t ? t.rank : 0
       a = @q[r]
       if a.nil?
         @q[r] = a = []

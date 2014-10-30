@@ -261,7 +261,7 @@ module Pwrake
 
 
     def enq_impl(t)
-      hints = t.suggest_location
+      hints = t && t.suggest_location
       if hints.nil? || hints.empty?
         @q_later.push(t)
       else
@@ -284,7 +284,7 @@ module Pwrake
 
     def deq_impl(host,n)
       if t = deq_locate(host)
-        Log.info "-- deq_locate n=#{n} task=#{t.name} host=#{host}"
+        Log.info "-- deq_locate n=#{n} task=#{t&&t.name} host=#{host}"
         Log.debug "--- deq_impl\n#{inspect_q}"
         return t
       end
@@ -299,21 +299,21 @@ module Pwrake
 
       if !@q_remote.empty?
         t = @q_remote.shift
-        Log.info "-- deq_remote n=#{n} task=#{t.name} host=#{host}"
+        Log.info "-- deq_remote n=#{n} task=#{t&&t.name} host=#{host}"
         Log.debug "--- deq_impl\n#{inspect_q}"
         return t
       end
 
       if !@q_later.empty?
         t = @q_later.shift
-        Log.info "-- deq_later n=#{n} task=#{t.name} host=#{host}"
+        Log.info "-- deq_later n=#{n} task=#{t&&t.name} host=#{host}"
         Log.debug "--- deq_impl\n#{inspect_q}"
         return t
       end
 
       if @enable_steal && n > 0 && Time.now-@last_enq_time > @steal_wait_after_enq
         if t = deq_steal(host)
-          Log.info "-- deq_steal n=#{n} task=#{t.name} host=#{host}"
+          Log.info "-- deq_steal n=#{n} task=#{t&&t.name} host=#{host}"
           Log.debug "--- deq_impl\n#{inspect_q}"
           return t
         end
@@ -330,8 +330,10 @@ module Pwrake
       q = @q[host]
       if q && !q.empty?
         t = q.shift
-        t.assigned.each do |h|
-          @q[h].delete(t)
+        if t
+          t.assigned.each do |h|
+            @q[h].delete(t)
+          end
         end
         @size -= 1
         return t
