@@ -127,7 +127,7 @@ Or, gem install:
 
 ## For Graph Partitioning
 
-* Compile and Install METIS 5.1.0 (http://www.cs.umn.edu/~Emetis/). This requires CMake.
+* Compile and Install METIS 5.1.0 (http://www.cs.umn.edu/~metis/). This requires CMake.
 
 * Install RbMetis (https://github.com/masa16/rbmetis) by
 
