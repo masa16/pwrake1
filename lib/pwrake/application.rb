@@ -67,7 +67,11 @@ module Pwrake
         @master.init
         load_rakefile
         begin
-          top_level
+          begin
+            top_level
+          rescue
+            puts $!.message
+          end
         ensure
           @master.finish
         end
@@ -188,6 +192,12 @@ module Pwrake
     def count(host_list, host)
       @master.counter.count( host_list, host )
     end
+
+=begin
+    def host_weigts
+      @master.counter.host_weights
+    end
+=end
 
     # from Michael Grosser's parallel
     # https://github.com/grosser/parallel
