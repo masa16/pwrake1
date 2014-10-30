@@ -355,7 +355,7 @@ module Pwrake
 	else
 	  @queue_class = LocalityAwareQueue
 	end
-        @num_noaction_threads = (n_noaction_th || [8,@num_threads].max).to_i
+        @num_noaction_threads = (n_noaction_th || [8,@host_list.num_threads].max).to_i
         @postprocess = GfarmPostprocess.new
         Log.debug "--- @queue_class=#{@queue_class}"
       else
