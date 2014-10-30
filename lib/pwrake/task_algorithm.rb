@@ -470,25 +470,6 @@ module Pwrake
       @input_file_mtime
     end
 
-    def suggest_location2
-      if kind_of?(Rake::FileTask) && preq_name = @prerequisites[0]
-        application[preq_name].location
-      end
-    end
-
-    def log_host(exec_host)
-      # exec_host = Pwrake.current_shell.host
-      if loc = suggest_location()
-        Pwrake.application.count( loc, exec_host )
-        if loc.include? exec_host
-          compare = "=="
-        else
-          compare = "!="
-        end
-        Log.info "-- access to #{@prerequisites[0]}: file_host=#{loc.inspect} #{compare} exec_host=#{exec_host}"
-      end
-    end
-
   end
 
 end # module Pwrake
