@@ -40,7 +40,7 @@
 <li>Author: Masahiro Tanaka</li>
 </ul>
 
-<p>(<a href="https://github.com/masa16/pwrake/wiki/Pwrake.ja">日本語README</a>),
+<p>(<a href="https://github.com/masa16/pwrake/wiki/Pwrake.ja">README in Japanese</a>),
 (<a href="https://github.com/masa16/pwrake">GitHub Repository</a>)</p>
 
 <h2>
@@ -167,7 +167,12 @@ PASS_ENV          (Array) Environment variables passed to SSH
 GNU_TIME          If true, obtains PROFILEs using GNU time
 PLOT_PARALLELISM  If true, plot parallelism using GNUPLOT
 FAILED_TARGET     ( rename(default) | delete | leave ) failed files
-QUEUE_PRIORITY    ( DFS(default) | FIFO )
+QUEUE_PRIORITY          RANK(default), FIFO, LIFO, LIHR
+NOACTION_QUEUE_PRIORITY FIFO(default), LIFO, RAND
+NUM_NOACTION_THREADS    default=4 when gfarm, else 1
+THREAD_CREATE_INTERVAL  default=0.01 (sec)
+HALT_QUEUE_WHILE_SEARCH true|false
+GRAPH_PARTITION         true|false
 </code></pre>
 
 <p>for Gfarm system:</p>
@@ -180,6 +185,7 @@ QUEUE_PRIORITY    ( DFS(default) | FIFO )
   GFARM_BASEDIR     default="/tmp"
   GFARM_PREFIX      default="pwrake_$USER"
   GFARM_SUBDIR      default='/'
+  MAX_GFWHERE_WORKER  default=8
 </code></pre>
 </li>
 </ul>
@@ -189,14 +195,25 @@ QUEUE_PRIORITY    ( DFS(default) | FIFO )
 
 <ul>
 <li>
-<p><code>gfwhere-pipe</code> command is required for file-affinity scheduling.</p>
+<p><code>gfwhere-pipe</code> script (included in Pwrake) is used for file-affinity scheduling.
+This script requires Ruby/FFI (<a href="https://github.com/ffi/ffi">https://github.com/ffi/ffi</a>). Install FFI by</p>
 
-<pre><code>wget https://gist.github.com/masa16/5787473/raw/6df5deeb80a4cea6b9d1d1ce01f390f65d650717/gfwhere-pipe.patch
-cd gfarm-2.5.8.1
-patch -p1 &lt; ../gfwhere-pipe.patch
-./configure --prefix=...
-make
-make install
+<pre><code>  gem install ffi
+</code></pre>
+</li>
+</ul>
+
+<h2>
+<a name="for-graph-partitioning" class="anchor" href="#for-graph-partitioning"><span class="octicon octicon-link"></span></a>For Graph Partitioning</h2>
+
+<ul>
+<li><p>Compile and Install METIS 5.1.0 (<a href="http://www.cs.umn.edu/%7Emetis/">http://www.cs.umn.edu/~metis/</a>). This requires CMake.</p></li>
+<li>
+<p>Install RbMetis (<a href="https://github.com/masa16/rbmetis">https://github.com/masa16/rbmetis</a>) by</p>
+
+<pre><code>gem install rbmetis -- \
+ --with-metis-include=/usr/local/include \
+ --with-metis-lib=/usr/local/lib
 </code></pre>
 </li>
 </ul>
@@ -205,8 +222,8 @@ make install
 <a name="tested-platform" class="anchor" href="#tested-platform"><span class="octicon octicon-link"></span></a>Tested Platform</h2>
 
 <ul>
-<li>Ruby 2.0.0</li>
-<li>Rake 0.9.6</li>
+<li>Ruby 2.1.4</li>
+<li>Rake 10.1.0</li>
 <li>CentOS 6.4</li>
 </ul>
 
