@@ -2,9 +2,9 @@
 <html>
 
   <head>
-    <meta charset='utf-8' />
-    <meta http-equiv="X-UA-Compatible" content="chrome=1" />
-    <meta name="description" content="Pwrake : Parallel workflow extension for Rake" />
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <meta name="description" content="Pwrake : Parallel workflow extension for Rake">
 
     <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
 
@@ -38,7 +38,9 @@
 
 <ul>
 <li>Author: Masahiro Tanaka</li>
-</ul><p>(<a href="https://github.com/masa16/pwrake/wiki/Pwrake.ja">日本語README</a>),
+</ul>
+
+<p>(<a href="https://github.com/masa16/pwrake/wiki/Pwrake.ja">日本語README</a>),
 (<a href="https://github.com/masa16/pwrake">GitHub Repository</a>)</p>
 
 <h2>
@@ -50,7 +52,9 @@
 <li>Remote exuecution using SSH.</li>
 <li>Pwrake is an extension to Rake, not patch to Rake: Rake and Pwrake coexist.</li>
 <li>High parallel I/O performance using Gfarm file system.</li>
-</ul><h2>
+</ul>
+
+<h2>
 <a name="installation" class="anchor" href="#installation"><span class="octicon octicon-link"></span></a>Installation</h2>
 
 <p>Download source tgz/zip and expand, cd to subdir and install:</p>
@@ -104,7 +108,9 @@ host2 2
 <pre><code>$ pwrake --hostfile=hosts
 </code></pre>
 </li>
-</ol><h2>
+</ol>
+
+<h2>
 <a name="options" class="anchor" href="#options"><span class="octicon octicon-link"></span></a>Options</h2>
 
 <h3>
@@ -166,17 +172,19 @@ QUEUE_PRIORITY    ( DFS(default) | FIFO )
 
 <p>for Gfarm system:</p>
 
-<pre><code>DISABLE_AFFINITY  default=false
-DISABLE_STEAL     default=false
-STEAL_WAIT        default=0 (sec)
-STEAL_WAIT_MAX    default=10 (sec)
- : Wait min(STEAL_WAIT*2**n, STEAL_WAIT_MAX) sec for task steal.
-GFARM_BASEDIR     default="/tmp"
-GFARM_PREFIX      default="pwrake_$USER"
-GFARM_SUBDIR      default='/'
+<pre><code>  DISABLE_AFFINITY  default=false
+  DISABLE_STEAL     default=false
+  STEAL_WAIT        default=0 (sec)
+  STEAL_WAIT_MAX    default=10 (sec)
+   : Wait min(STEAL_WAIT*2**n, STEAL_WAIT_MAX) sec for task steal.
+  GFARM_BASEDIR     default="/tmp"
+  GFARM_PREFIX      default="pwrake_$USER"
+  GFARM_SUBDIR      default='/'
 </code></pre>
 </li>
-</ul><h2>
+</ul>
+
+<h2>
 <a name="note-for-gfarm" class="anchor" href="#note-for-gfarm"><span class="octicon octicon-link"></span></a>Note for Gfarm</h2>
 
 <ul>
@@ -191,14 +199,18 @@ make
 make install
 </code></pre>
 </li>
-</ul><h2>
+</ul>
+
+<h2>
 <a name="tested-platform" class="anchor" href="#tested-platform"><span class="octicon octicon-link"></span></a>Tested Platform</h2>
 
 <ul>
 <li>Ruby 2.0.0</li>
 <li>Rake 0.9.6</li>
 <li>CentOS 6.4</li>
-</ul><h2>
+</ul>
+
+<h2>
 <a name="acknowledgment" class="anchor" href="#acknowledgment"><span class="octicon octicon-link"></span></a>Acknowledgment</h2>
 
 <p>This work is supported by</p>
